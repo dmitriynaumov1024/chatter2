@@ -1,0 +1,81 @@
+0. timesync
+client app sends POST time
+server returns time -- UNIX timestamp
+client app sets { timediff = time - Date.now() }
+
+1. first time
+client app is absolutely zero. 
+client app on its own goes to login page.
+user enters their email.
+client app sends POST auth.begin { email }
+server creates User record, if not exists yet.
+server creates UserSession record.
+server returns { session { id } } to client app and sends short code to email.
+user enters short code.
+client app sends POST auth.complete { session { id, shortcode } }
+if shortcode is valid, server returns session { id, token, refreshAt } to client
+else it returns session null, tryagain true
+
+2. next time
+client app { session { id, token, refreshAt } }
+client app sends POST auth { session { id, token } }
+if session is still valid, server returns session { id, token, refreshAt } to client
+else returns session null, relogin true
+
+3. refresh
+client app { session { id, token, refreshAt } }
+refreshAt is less than Date.now()+timediff
+client app sends POST auth { session { id, token } }
+if session is still valid, server returns session { id, token, refreshAt } to client
+else returns session null, relogin true
+
+4. index
+client app { session { id, token, refreshAt } }
+assuming session is valid
+client app sends POST index { session { id, token } }
+server returns { me { ...User }, chatrooms [{ ...Chatroom }] }
+
+5. chatroom
+client app { session { id, token, refreshAt } }
+assuming session is valid
+client app sends POST chatroom.index { session { id, token }, chatroom { id }, time Number }
+server returns { chatroom { ...Chatroom }, users [{ ... User }], chunks [{ ...ChatroomChunk }], time Number }
+client app repeats request with { time:= previous response time }
+
+6. message history
+client app { session { id, token, refreshAt } }
+assuming session is valid
+client app sends POST chatroom.history { session { id, token }, chatroom { id }, endAt Number }
+server returns { chunk { ...ChatroomChunk } } or null
+
+7. create chatroom
+client app { session { id, token, refreshAt } }
+assuming session is valid
+client app sends POST chatroom.create { session { id, token }, chatroom { title: String } }
+server returns { chatroom {...Chatroom } }
+
+8. delete chatroom
+client app { session { id, token, refreshAt } }
+assuming session is valid
+client app sends POST chatroom.delete { session { id, token }, chatroom { id: String } }
+server returns { chatroom { id: String } }
+
+9. send message
+client app { session { id, token, refreshAt } }
+assuming session is valid
+client app sends POST chatroom.message.send { session { id, token }, chatroom { id: String }, message { text } }
+
+10. edit message
+client app { session { id, token, refreshAt } }
+assuming session is valid
+client app sends POST chatroom.message.edit { session { id, token }, chatroom { id: String }, message { id, text } }
+
+11. add user to chatroom
+client app { session { id, token, refreshAt } }
+assuming session is valid
+client app sends POST chatroom.user.add { session { id, token }, chatroom { id }, user { email } }
+
+12. remove user from chatroom
+client app { session { id, token, refreshAt } }
+assuming session is valid
+client app sends POST chatroom.user.remove { session { id, token }, chatroom { id }, user { id, email } }

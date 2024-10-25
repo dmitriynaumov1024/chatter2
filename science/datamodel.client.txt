@@ -1,0 +1,39 @@
+type ChatterClientData {
+    me: { 
+        id: String,
+        email: String,
+        createdAt: Number
+    },
+    session: { 
+        id: String,
+        token: String,
+        refreshAt: Number
+    },
+    users: [{
+        id: String,
+        email: String
+    }],
+    chatrooms: [{
+        id: String,
+        title: String,
+        createdAt: Number,
+        usersChangedAt: Number,
+        messagesChangedAt: Number,
+        lastReadAt: Number,
+        canWrite: Boolean,
+        canManage: Boolean
+    }],
+    chatroomChunks: [{
+        id: String,
+        chatId: String,
+        startAt: Number,
+        endAt: Number,
+        messages: [{
+            id: String,
+            senderId: String,
+            sentAt: Number,
+            editedAt: Number,
+            text: String
+        }]
+    }]
+}

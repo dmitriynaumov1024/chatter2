@@ -1,0 +1,44 @@
+[1] relational User
++ id: String pk
++ email: String unique
++ createdAt: Timestamp
++ confirmedAt: Timestamp
+
+[2] relational UserSession
++ id: String pk
++ userId: String fk(User)
++ token: String
++ tokenOld: String
++ shortCode: String
++ createdAt: Timestamp
++ refreshAt: Timestamp
++ expireAt: Timestamp
+
+[3] relational Chatroom
++ id: String pk
++ ownerId: String fk(User)
++ title: String
++ createdAt: Timestamp
++ usersChangedAt: Timestamp
++ messagesChangedAt: Timestamp
+
+[4] relational UserInChatroom
++ chatId: String pk fk(Chatroom)
++ userId: String pk fk(User)
++ canWrite: Boolean
++ canManage: Boolean
++ lastReadAt: Timestamp
+
+[5] relational ChatroomChunk
++ id: String pk 
++ chatId: String fk(Chatroom) 
++ startAt: Timestamp
++ endAt: Timestamp
++ messages: Message[] json
+
+[n.1] nested Message
++ id: String
++ senderId: String
++ sentAt: Timestamp
++ editedAt: Timestamp
++ text: String
