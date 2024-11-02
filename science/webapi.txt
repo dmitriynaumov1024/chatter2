@@ -1,0 +1,22 @@
+# chatter2 api version 1
+- /api/v1
+    # utils, does not need database
+    - get /ping
+    - post /time
+    # auth
+    - post /auth
+    - post /auth.begin
+    - post /auth.complete
+    # chatlist
+    - post /index
+    # chatroom
+    - post /chatroom.create
+    - post /chatroom.delete
+    - post /chatroom.index
+    # chatroom message
+    - post /chatroom.message.send
+    - post /chatroom.message.edit
+    # chatroom user
+    - post /chatroom.user.add
+    - post /chatroom.user.setmode
+    - post /chatroom.user.remove

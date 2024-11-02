@@ -27,6 +27,10 @@
 + userId: String pk fk(User)
 + canWrite: Boolean
 + canManage: Boolean
++ invitedAt: Timestamp
++ acceptedAt: Timestamp
++ rejectedAt: Timestamp
++ kickedAt: Timestamp
 + lastReadAt: Timestamp
 
 [5] relational ChatroomChunk
@@ -38,7 +42,14 @@
 
 [n.1] nested Message
 + id: String
-+ senderId: String
-+ sentAt: Timestamp
-+ editedAt: Timestamp
-+ text: String
++ userId: String
++ createdAt: Timestamp
++ text?: String
++ files?: String[] // reserved for future use
++ edit?: 
+    + chunk: String // reference to orig.chunk
+    + id: String // reference to orig.message
++ event?:
+    + entityType: String (chatroom|user)
+    + actionType: String (create|found|invite|kick)
+    + entity: Object

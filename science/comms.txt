@@ -32,27 +32,24 @@ else returns session null, relogin true
 4. index
 client app { session { id, token, refreshAt } }
 assuming session is valid
-client app sends POST index { session { id, token } }
-server returns { me { ...User }, chatrooms [{ ...Chatroom }] }
+client app sends POST index { session { id, token }, time Number, mode String(invited|accepted|rejected) default "accepted" }
+server returns { me { ...User }, chatrooms [{ ...Chatroom }], time Number }
 
-5. chatroom
+5. chatroom (get messages and users)
 client app { session { id, token, refreshAt } }
 assuming session is valid
-client app sends POST chatroom.index { session { id, token }, chatroom { id }, time Number }
-server returns { chatroom { ...Chatroom }, users [{ ... User }], chunks [{ ...ChatroomChunk }], time Number }
-client app repeats request with { time:= previous response time }
+client app sends POST chatroom.index { session { id, token }, chatroom { id }, after Number, before Number }
+server returns { chatroom { ...Chatroom }, users [{ ... User }], chunks [{ ...ChatroomChunk }] }
+client app repeats request with { time:= most recent event time }
 
 6. message history
-client app { session { id, token, refreshAt } }
-assuming session is valid
-client app sends POST chatroom.history { session { id, token }, chatroom { id }, endAt Number }
-server returns { chunk { ...ChatroomChunk } } or null
+will not be implemented
 
 7. create chatroom
 client app { session { id, token, refreshAt } }
 assuming session is valid
 client app sends POST chatroom.create { session { id, token }, chatroom { title: String } }
-server returns { chatroom {...Chatroom } }
+server returns { chatroom { id: String } }
 
 8. delete chatroom
 client app { session { id, token, refreshAt } }
@@ -68,14 +65,14 @@ client app sends POST chatroom.message.send { session { id, token }, chatroom { 
 10. edit message
 client app { session { id, token, refreshAt } }
 assuming session is valid
-client app sends POST chatroom.message.edit { session { id, token }, chatroom { id: String }, message { id, text } }
+client app sends POST chatroom.message.edit { session { id, token }, chatroom { id: String }, chatroomChunk { id: String }, message { id, text } }
 
 11. add user to chatroom
 client app { session { id, token, refreshAt } }
 assuming session is valid
 client app sends POST chatroom.user.add { session { id, token }, chatroom { id }, user { email } }
 
-12. remove user from chatroom
+12. remove user from chatroom, or remove self
 client app { session { id, token, refreshAt } }
 assuming session is valid
 client app sends POST chatroom.user.remove { session { id, token }, chatroom { id }, user { id, email } }

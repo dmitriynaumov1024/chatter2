@@ -9,21 +9,26 @@ type ChatterClientData {
         token: String,
         refreshAt: Number
     },
-    users: [{
+    users: { chatId String: [{
         id: String,
         email: String
-    }],
+    }]},
     chatrooms: [{
         id: String,
+        ownerId: String,
         title: String,
         createdAt: Number,
         usersChangedAt: Number,
         messagesChangedAt: Number,
         lastReadAt: Number,
         canWrite: Boolean,
-        canManage: Boolean
+        canManage: Boolean,
+        invitedAt: Number,
+        acceptedAt: Number,
+        rejectedAt: Number,
+        kickedAt: Number
     }],
-    chatroomChunks: [{
+    chatroomChunks: { chatId String: [{
         id: String,
         chatId: String,
         startAt: Number,
@@ -35,5 +40,5 @@ type ChatterClientData {
             editedAt: Number,
             text: String
         }]
-    }]
+    }]}
 }
