@@ -106,6 +106,7 @@ export default {
                     h("input", { class: ["block", "mar-b-05"], value: this.chatTitle, onInput: (e)=> this.chatTitle = e.target.value }),
                     h("button", { class: ["block"], onClick: ()=> this.completeCreateChat(true) }, "Create")
                 ])),
+                // a modal window displaying details about user
                 h(modal, { display: this.showingMe, onClickOutside: ()=> this.endShowMe() }, ()=> h("div", { }, [
                     h("div", { class: ["mar-b-1"] }, [
                         h("h3", { class: ["mar-b-05"] }, me.email),

@@ -16,12 +16,14 @@ let lsKey = "app.chatter.light." + (query.context || "default")
 import beginAuth from "./pages/beginAuth.js"
 import continueAuth from "./pages/continueAuth.js"
 import chatlist from "./pages/chatlist.js"
+import chatroom from "./pages/chatroom.js"
 import index from "./pages/index.js"
 
 let pages = {
     beginAuth,
     continueAuth,
     chatlist,
+    chatroom,
     index
 }
 
@@ -75,13 +77,6 @@ app.config.globalProperties.$logout = function() {
         }
         this.$http.session = { }
     }, 100)
-}
-
-import { fake } from "./fake/fake.js"
-
-if (query.context == "test-no-backend") {
-    Object.assign(clientStorage, fake().user().chat())
-    tempStorage.page = "chatlist"
 }
 
 app.mount("#app")

@@ -39,6 +39,14 @@ h2 {
   color: #999999;
 }
 
+.text-090 {
+  font-size: 0.875em;
+}
+
+.text-right {
+  text-align: right;
+}
+
 .text-center {
   text-align: center;
 }
@@ -123,6 +131,32 @@ input {
   right: 0.25em;
   top: 50%;
   transform: translateY(-50%);
+}
+
+.message {
+  margin: 0.125em;
+  padding: 0.125em 0.75em;
+  background-color: #fefefe;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  border-radius: 0.25em;
+}
+
+.message[own=true] {
+  border-bottom-right-radius: 0;
+  margin-left: 2em;
+}
+
+.message[own=false] {
+  margin-right: 2em;
+  border-bottom-left-radius: 0;
+}
+
+.system-message {
+  margin: 0.125em 0;
+  text-align: center;
+  background-color: rgba(0, 0, 0, 0.06);
+  border-radius: 0;
+  padding: 0.25rem;
 }
 
 .flex-stripe {
