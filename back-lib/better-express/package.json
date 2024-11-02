@@ -1,0 +1,13 @@
+{
+    "name": "better-express",
+    "author": "Dmitriy Naumov",
+    "private": true,
+    "version": "0.1.0",
+    "type": "module",
+    "main": "index.js",
+    "dependencies": {
+        "express": "^4.18.2",
+        "logging": "file:../logging",
+        "ws": "^8.18.0"
+    }
+}
