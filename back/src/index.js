@@ -1,0 +1,77 @@
+import "dotenv/config"
+
+import { ConsoleLogger } from "logging"
+let logger = new ConsoleLogger()
+
+import { sqlite } from "./database/connect.js"
+let dbConnection = sqlite({ 
+    filename: "../var/database.db"
+})
+
+import { Chatter2DbAdapter } from "./database/database.js"
+let dbAdapter = new Chatter2DbAdapter()
+await dbAdapter.connect(dbConnection)
+await dbAdapter.createDb()
+
+import { Chatter2CacheAdapter } from "./cache/cache.js"
+let cacheAdapter = new Chatter2CacheAdapter(dbAdapter)
+
+import { createServer } from "better-express"
+let server = createServer({
+    https: true,
+    key: "../var/openssl/key/localhost.key",
+    cert: "../var/openssl/cert/localhost.crt"
+})
+
+// static serving
+import express from "express"
+server.http.use(express.static("./dist"))
+
+// pre-middleware
+import { requestItemProvider } from "./middleware/request-item-provider.js"
+server.http.use(requestItemProvider({
+    logger: ()=> logger,
+    db: ()=> dbAdapter,
+    cache: ()=> cacheAdapter
+}))
+
+import { requestLogger } from "./middleware/request-logger.js"
+server.http.use(requestLogger())
+
+import { crossOrigin } from "./middleware/cross-origin.js"
+server.http.use(crossOrigin({ origins: "*" }))
+
+import { jsonBodyParser } from "./middleware/json-parser.js"
+server.http.use(jsonBodyParser())
+
+// web api handlers
+let api = server.http.subpath("/api/v1")
+
+import { userSession } from "./middleware/user-session.js"
+api.use(userSession())
+
+import { utilsRouter } from "./webapi/utils.js"
+api.use(utilsRouter)
+
+import { authRouter } from "./webapi/auth.js"
+api.use(authRouter)
+
+import { chatListRouter } from "./webapi/chatlist.js"
+api.use(chatListRouter)
+
+import { chatroomRouter } from "./webapi/chatroom.js"
+api.use(chatroomRouter)
+
+import { chatroomUserRouter } from "./webapi/chatroom.user.js"
+api.use(chatroomUserRouter)
+
+import { chatroomMessageRouter } from "./webapi/chatroom.message.js"
+api.use(chatroomMessageRouter)
+
+// error catcher
+import { errorCatcher } from "./middleware/error-catcher.js"
+server.http.app.use(errorCatcher(()=> logger))
+
+let port = 8080
+server.listen(port)
+logger.log(`Listening to ${port}`)

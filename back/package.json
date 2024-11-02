@@ -1,0 +1,20 @@
+{
+    "name": "chatter-backend",
+    "version": "0.0.1",
+    "type": "module",
+    "scripts": {
+        "dev": "node ./src/index.js"
+    },
+    "dependencies": {
+        "better-express": "file:../back-lib/better-express",
+        "better-obj": "file:../back-lib/better-obj",
+        "dotenv": "^16.3.1",
+        "express": "^4.18.2",
+        "knex": "^3.0.1",
+        "logging": "file:../back-lib/logging",
+        "objection": "^3.1.2",
+        "sqlite3": "^5.1.7",
+        "uuid": "^10.0.0",
+        "ws": "^8.18.0"
+    }
+}
