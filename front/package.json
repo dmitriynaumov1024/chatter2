@@ -1,0 +1,18 @@
+{
+    "type": "module",
+    "name": "chatter-light-front",
+    "version": "0.0.1",
+    "private": true,
+    "scripts": {
+        "dev": "vite --port 5000",
+        "build": "vite build --mode prod && rm -rf ../back/dist && mv ./dist ../back/dist"
+    },
+    "dependencies": {
+        "qs": "^6.13.0",
+        "uuid": "^10.0.0",
+        "vue": "^3.5.12"
+    },
+    "devDependencies": {
+        "vite": "^5.4.9"
+    }
+}
