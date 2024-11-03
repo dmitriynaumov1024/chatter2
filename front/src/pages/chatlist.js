@@ -1,23 +1,113 @@
 import { h } from "vue"
 import modal from "../comp/modal.js"
+import { prevent, stop } from "../comp/event-modifiers.js"
 
+const chatModes = [ "accepted", "invited", "rejected" ]
+const chatFolderNames = {
+    accepted: "Active",
+    invited: "Invitations",
+    rejected: "Rejected"
+}
+const chatModeNames = {
+    invited: "invited",
+    accepted: "accepted",
+    rejected: "rejected"
+}
+const supportedChatActions = {
+    invited: ["accepted", "rejected"],
+    accepted: ["invited", "rejected"],
+    rejected: ["invited", "accepted"]
+}
+
+// chatroom card view
 const chatroomView = {
     props: {
-        chatroomId: String
+        chatroom: Object,
+        chunks: Object,
+        mode: String,
+        expanded: Boolean
     },
     emits: [
-        "click"
+        "navigate",
+        "expand",
+        "setMode"
     ],
     render() {
-        let chatroom = this.$storage.chatrooms.find(c => c.id == this.chatroomId)
-        let chunks = this.$storage.chatroomChunks? this.$storage.chatroomChunks[this.chatroomId] : null
-        let message = chunks?.find(c => c.chatId == this.chatroomId && c.endAt == null)?.messages.findLast(m=> m.text)
-        return h("div", { class: ["pad-025", "bv", "clickable"], onClick: ()=> this.$emit("click") }, [
-            h("p", { }, h("b", { }, chatroom.title)),
-            h("p", { class: ["color-gray", "mar-b-05", "one-line"] }, message?.text.slice(200) || "no preview available"),
-            (chatroom.messagesChangedAt > chatroom.lastReadAt)?
-            h("div", { class: ["chat-preview-dot"] }, "") : null
-        ])
+        let chatroom = this.chatroom
+        if (this.mode == "accepted") {
+            let message = this.chunks?.find(c => c.chatId == chatroom.id && c.endAt == null)?.messages.findLast(m=> m.text)
+            return h("div", { class: ["pad-025", "bv", "clickable", "chat-card"], expanded: this.expanded, onClick: ()=> this.$emit("navigate"), onContextmenu: prevent(()=> this.$emit("expand")) }, [
+                h("p", { class: ["one-line"] }, h("b", { }, chatroom.title)),
+                h("p", { class: ["color-gray", "mar-b-05", "one-line"] }, message?.text.slice(200) || "no preview available"),
+                (chatroom.messagesChangedAt > chatroom.lastReadAt)?
+                h("div", { class: ["chat-preview-dot"] }, "") : null,
+                h("div", { class: ["mar-b-05"], display: this.expanded, onClick: stop() }, [
+                    h("a", { onClick: ()=> this.$emit("navigate") }, "Open"),
+                    supportedChatActions[this.mode].map(act=> [
+                        h("span", { class: ["color-gray"] }, " | "),
+                        (chatroom.newMode == act)?
+                        h("span", { }, "\u2713 Marked as " + act) :
+                        h("a", { onClick: ()=> this.$emit("setMode", act) }, "Mark as " + act)
+                    ])
+                ])
+            ])
+        }
+        else if (this.mode == "invited" || this.mode == "rejected") {
+            return h("div", { class: ["pad-025", "bv", "clickable", "chat-card"], expanded: this.expanded, onClick: ()=> this.$emit("expand"), onContextmenu: prevent(()=> this.$emit("expand")) }, [
+                h("p", { class: ["one-line", "mar-b-05"] }, h("b", { }, chatroom.title)),
+                h("div", { class: ["mar-b-05"], display: this.expanded, onClick: stop() }, [
+                    h("a", { onClick: ()=> this.$emit("navigate") }, "Open"),
+                    supportedChatActions[this.mode].map(act=> [
+                        h("span", { class: ["color-gray"] }, " | "),
+                        (chatroom.newMode == act)?
+                        h("span", { }, "\u2713 Marked as " + act) :
+                        h("a", { onClick: ()=> this.$emit("setMode", act) }, "Mark as " + act)
+                    ])
+                ])
+            ])
+        }
+        else {
+            return h("div", { class: ["mar-b-05", "color-bad"] }, "Wrong mode.")
+        }
+    }
+}
+
+const chatroomListView = {
+    props: {
+        chatrooms: Object,
+        currentMode: String
+    },
+    data() {
+        return {
+            expandedId: null
+        }
+    },
+    emits: [
+        "goToChat",
+        "setChatMode"
+    ],
+    methods: {
+        onNavigate(chat) {
+            this.$emit("goToChat", chat.id)
+        },
+        onExpand(chat) {
+            this.expandedId = chat.id
+        },
+        onSetMode(chat, mode) {
+            this.$emit("setChatMode", chat.id, mode)
+        }
+    },
+    render() {
+        return this.$storage.chatrooms.map(chatroom=> {
+            let chunks = this.$storage.chatroomChunks? this.$storage.chatroomChunks[this.chatroomId] : null
+            let mode = this.currentMode
+            return h(chatroomView, { 
+                chatroom, chunks, mode, expanded: this.expandedId==chatroom.id,
+                onNavigate: ()=> this.onNavigate(chatroom),
+                onExpand: ()=> this.onExpand(chatroom),
+                onSetMode: (mode)=> this.onSetMode(chatroom, mode)
+            })
+        })
     }
 }
 
@@ -27,7 +117,8 @@ export default {
             creatingChat: false,
             showingMe: false,
             loggingOut: false,
-            chatTitle: ""
+            chatTitle: "",
+            chatMode: "accepted"
         }
     },
     methods: {
@@ -36,7 +127,7 @@ export default {
             this.$goToPage("chatroom")
         },
         async getIndex() {
-            let result = await this.$http.invoke("index")
+            let result = await this.$http.invoke("index", { mode: this.chatMode })
             this.$storage.chatroomChunks??= { }
             if (result.me) {
                 this.$storage.me = result.me
@@ -75,6 +166,19 @@ export default {
             if (confirm) {
                 this.$logout()
             }
+        },
+        setChatMode(mode) {
+            if (mode != this.chatMode) {
+                this.chatMode = mode
+                this.getIndex()
+            }
+        },
+        async setModeForChat(chatId, mode) {
+            let result = await this.$http.invoke("chatroom.user.setmode", { chatroom: { id: chatId, mode } })
+            if (result.success) {
+                let chatroom = this.$storage.chatrooms.find(c=> c.id == chatId)
+                chatroom.newMode = mode
+            }
         }
     },
     mounted() {
@@ -84,19 +188,28 @@ export default {
         if (this.$storage.me && this.$storage.chatrooms) {
             let me = this.$storage.me
             let chatrooms = this.$storage.chatrooms.map(c => c)
-            chatrooms.sort((c1, c2)=> c1.messagesChangedAt - c2.messagesChangedAt)
+            // newest first
+            chatrooms.sort((c1, c2)=> c2.messagesChangedAt - c1.messagesChangedAt)
             return h("div", { class: ["full-height", "pad-05"] }, [
-                h("div", { class: ["mar-b-1", "bb"] }, [
+                h("div", { class: ["mar-b-05", "bb"] }, [
                     h("h2", { }, "My chatlist"),
                     h("p", { class: ["mar-b-05"] }, [
                         h("span", { }, "Signed in as "),  
                         h("a", { onClick: ()=> this.beginShowMe() }, me.email)
                     ]),
                 ]),
+                h("div", { class: ["mar-b-1", "bb"] }, [
+                    h("div", { class: ["flex-stripe", "mar-b-05"] }, 
+                        chatModes.map(mode=> h("div", { class: [ "clickable", "flex-grow", "text-center", mode==this.chatMode? "text-bold" : "link"], onClick: ()=> this.setChatMode(mode) }, chatFolderNames[mode]))
+                    )
+                ]),
+                this.chatMode? null : 
                 h("button", { class: ["block", "mar-b-05"], onClick: ()=> this.beginCreateChat() }, "+ New chat"),
                 chatrooms.length?
-                chatrooms.map(item=> {
-                    return h(chatroomView, { chatroomId: item.id, onClick: ()=> this.goToChat(item.id) })
+                h(chatroomListView, { 
+                    chatrooms, currentMode: this.chatMode,
+                    onGoToChat: (id)=> this.goToChat(id),
+                    onSetChatMode: (id, mode)=> this.setModeForChat(id, mode)
                 }) :
                 h("div", { class: ["text-center", "pad05"] }, "No chats so far..."),
                 // a modal window for create new chat
@@ -116,7 +229,7 @@ export default {
                     h("div", { }, [
                         h("p", { class: ["mar-b-05"] }, "Really log out?"),
                         h("button", { class: ["block", "mar-b-05"], onClick: ()=> this.endLogout(false) }, "Cancel"),
-                        h("button", { class: ["block", "color-bad", "mar-b-05"], onClick: ()=> this.endLogout(true) }, h("b", "Log out"))
+                        h("button", { class: ["block", "color-bad"], onClick: ()=> this.endLogout(true) }, h("b", "Log out"))
                     ]) :
                     h("button", { class: ["block"], onClick: ()=> this.beginLogout() }, "Log out")
                 ]))

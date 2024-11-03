@@ -7,7 +7,10 @@ let httpClient = HttpClient("/api/v1")
 let tempStorage = reactive({ })
 let clientStorage = reactive({ })
 
-let querystring = (window.location.search || window.location.hash).split("?").at(-1) || ""
+let querystring = (window.location.search || window.location.hash)
+if (querystring.startsWith("#")) querystring = querystring.split("?").at(-1) || ""
+else querystring = (querystring.split("#").find(s => s.startsWith("?")) || "?").slice(1)
+    
 let query = qs.parse(querystring)
 
 let lsKey = "app.chatter.light." + (query.context || "default")
@@ -32,17 +35,17 @@ let app = createApp({
         Object.assign(this.$storage, JSON.parse(window.localStorage[lsKey]|| "{}"))
         this.$http.session = Object.assign({}, this.$storage.session)
         await this.$http.timesync()
-        if (await this.$http.hasValidSession()) {
-            this.$goToPage("chatlist")
-        }
+        this.$temp.page = "index"
         window.addEventListener("popstate", ()=> {
             this.$temp.page = window.history.state || "index"
-            console.log("popped page")
         })
         window.addEventListener("beforeunload", ()=> {
             this.$storage.session = this.$http.session
             window.localStorage[lsKey] = JSON.stringify(Object.assign({}, this.$storage))
         })
+        if (await this.$http.hasValidSession()) {
+            this.$goToPage("chatlist")
+        }
     },
     render() {
         return h("div", { class: ["width-container"] }, [
@@ -63,7 +66,7 @@ app.config.globalProperties.$goToPage = function(newPage) {
         }
         else {
             console.log("push page " + newPage)
-            window.history.pushState(this.$temp.page, "")
+            window.history.pushState(newPage, "")
             this.$temp.page = newPage
         }
     }, 100)

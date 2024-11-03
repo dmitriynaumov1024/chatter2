@@ -16,9 +16,9 @@ export function HttpClient (apiBaseUrl, initSession) {
                 headers: { "Content-Type": "application/json; chatset=utf-8" },
                 body: JSON.stringify(Object.assign({ }, params)) 
             })
-            if (result.status >= 400) {
-                return { error: true } 
-            }
+            // if (result.status >= 400) {
+            //     return { error: true } 
+            // }
             result = await result.json()
             if (result.session) session = Object.assign({}, result.session)
             return result 

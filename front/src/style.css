@@ -31,6 +31,10 @@ h2 {
   font-size: 1.25rem;
 }
 
+.text-bold {
+  font-weight: bold;
+}
+
 .color-bad.color-bad {
   color: #e03434;
 }
@@ -57,10 +61,32 @@ h2 {
   margin: auto;
 }
 
+.max-height-10 {
+  max-height: 10rem;
+  overflow-y: auto;
+}
+
+.max-height-15 {
+  max-height: 15rem;
+  overflow-y: auto;
+}
+
 /*.full-height {
   height: 100%;
   overflow-y: scroll;
 }*/
+
+.pad-025.pad-025 {
+  padding: 0.25rem;
+}
+
+.pad-025-05.pad-025-05 {
+  padding: 0.25rem 0.5rem;
+}
+
+.pad-0-05.pad-0-05 {
+  padding: 0 0.5rem;
+}
 
 .pad-05.pad-05 {
   padding: 0.5rem;
@@ -106,12 +132,17 @@ button {
   box-shadow: none;
   border-radius: 0;
   background-image: none;
+  cursor: pointer;
 }
 
 input {
   background-color: transparent;
   border: 2px solid rgba(128, 128, 128, 0.2);
   border-radius: 0;
+}
+
+.chat-card[expanded="true"] {
+  
 }
 
 .one-line {
@@ -141,12 +172,12 @@ input {
   border-radius: 0.25em;
 }
 
-.message[own=true] {
+.message[own="true"] {
   border-bottom-right-radius: 0;
   margin-left: 2em;
 }
 
-.message[own=false] {
+.message[own="false"] {
   margin-right: 2em;
   border-bottom-left-radius: 0;
 }
@@ -162,6 +193,11 @@ input {
 .flex-stripe {
   display: flex;
   flex-direction: row;
+}
+
+.flex-pad-05 {
+  column-gap: 0.5rem;
+  row-gap: 0.5rem;
 }
 
 .flex-grow {
@@ -213,6 +249,6 @@ input {
   }
 }
 
-[display=false][display=false] {
+[display="false"][display="false"] {
   display: none;
 }
