@@ -4,6 +4,11 @@
 + createdAt: Timestamp
 + confirmedAt: Timestamp
 
+[1.1] relational EmailVerification
++ email: String pk
++ rejected: Boolean
++ verifyAt: Timestamp 
+
 [2] relational UserSession
 + id: String pk
 + userId: String fk(User)
