@@ -1,5 +1,4 @@
 import { createRouter } from "better-express"
-
 import { v4 as uuid } from "uuid"
 
 import {
@@ -12,6 +11,11 @@ import {
 import {
     timeout
 } from "../utils/time.js"
+
+import {
+    isValidEmail,
+    isValidEmailProvider
+} from "../utils/email.js"
 
 let route = createRouter()
 
@@ -63,40 +67,75 @@ route.post("/auth.begin", async (request, response)=> {
     await timeout(250)
     let { db, logger } = request
     let email = request.body.email
-    if (email) {
-        let user = await db.user.query().where("email", email).first()
-        if (!user) {
-            user = await db.user.query().insert({
-                id: uuid(),
+    if (!email) return response.status(400).json({
+        message: "Bad request! Required body { email String }"
+    })
+
+    if (!isValidEmail(email)) return response.status(400).json({
+        invalidEmail: true,
+        message: "This email is not valid format at all."
+    })
+
+    let user = await db.user.query().where("email", email).first()
+
+    if (!user) {
+        if (!isValidEmailProvider(email)) return response.status(400).json({
+            blacklistedEmail: true,
+            message: "This email provider is blacklisted."
+        })
+
+        let verification = await db.emailVerification.query().where("email", email).first()
+        if (!verification) {
+            verification = await db.emailVerification.query().insert({
                 email: email,
-                createdAt: Date.now(),
-                confirmedAt: 0
+                verifyAt: Date.now() + 660000, // + 11 minutes
+                rejected: false
+            })
+            return response.status(200).json({
+                verifyingEmail: true,
+                waitTimeout: verification.verifyAt - Date.now()
             })
         }
-        let userSession = await db.userSession.query().insert({
-            id: uuid(),
-            userId: user.id,
-            token: createSessionToken(),
-            tokenOld: null,
-            shortCode: createShortCode(),
-            createdAt: Date.now(),
-            refreshAt: Date.now() + sessionRefreshTime,
-            expireAt: Date.now() + sessionRefreshTime
-        })
-        
-        // this is a stub!
-        logger.warn(`Short code for ${email} is <${userSession.shortCode}>.`)
+        if (verification.rejected) {
+            return response.status(400).json({
+                blacklistedEmail: true
+            })
+        }
+        if (verification.verifyAt == null || verification.verifyAt > Date.now()) {
+            return response.status(200).json({
+                verifyingEmail: true, 
+                waitTimeout: (verification.verifyAt ?? Date.now()) - Date.now()
+            })
+        }
 
-        return response.status(200).json({
-            session: { id: userSession.id },
-            message: "Code was sent!"
+        // if verification is ok, create user
+        user = await db.user.query().insert({
+            id: uuid(),
+            email: email,
+            createdAt: Date.now(),
+            confirmedAt: null
         })
     }
-    else {
-        return response.status(400).json({
-            message: "Bad request! Required body { email String }"
-        })
-    }
+
+    let userSession = await db.userSession.query().insert({
+        id: uuid(),
+        userId: user.id,
+        token: createSessionToken(),
+        tokenOld: null,
+        shortCode: createShortCode(),
+        createdAt: Date.now(),
+        refreshAt: Date.now() + sessionRefreshTime,
+        expireAt: Date.now() + sessionRefreshTime
+    })
+    
+    // this is a stub!
+    logger.warn(`Short code for ${email} is <${userSession.shortCode}>.`)
+
+    return response.status(200).json({
+        session: { id: userSession.id },
+        message: "Code was sent!"
+    })
+    
 })
 
 route.post("/auth.complete", async (request, response)=> {

@@ -30,16 +30,10 @@ let chatModeModifier = {
 // add event to corresponding chat 
 // technically we can just launch it and forget.
 export async function emitUserChangeEvent ({ cache, chatId, user, mode }) {
-    let chunk = null, 
-        chat = cache.chatroom.get({ id: chatId, notCached: true })
-    if (chat.notCached) {
-        // it will pull through chat
-        chat = await cache.chatroom.getById(chatId)
-        chunk = await cache.chatroomChunk.getByQuery(c => c.where("chatId", chatId).whereNull("endAt"))
-    }
-    else {
-        chunk = cache.chatroomChunk.filter(c => c.chatId == chatId && c.endAt == null)
-    }
+    let chat = await cache.chatroom.getById(chatId)
+    let chunk = cache.chatroomChunk.filter(c => c.chatId == chatId && c.endAt == null).at(0)
+    chunk ??= await cache.chatroomChunk.getByQuery(c => c.where("chatId", chatId).whereNull("endAt").first())
+
     let now = Date.now()
     chat.usersChangedAt = now
     chat.messagesChangedAt = now
@@ -60,7 +54,7 @@ export async function emitUserChangeEvent ({ cache, chatId, user, mode }) {
         cache.chatroomChunk.put(newChunk, true)
         await cache.chatroomChunk.pushById(newChunk.id)
     }
-    cache.chatroomChunk.put(chunk, true)
+    // cache.chatroomChunk.put(chunk, true)
     await cache.chatroomChunk.pushById(chunk.id)
     await cache.chatroom.pushById(chatId)
 }
@@ -68,8 +62,9 @@ export async function emitUserChangeEvent ({ cache, chatId, user, mode }) {
 let route = createRouter()
 
 route.post("/chatroom.user.add", async(request, response)=> {
-    let { logger, db, session } = request
+    let { logger, db, cache, session } = request
     if (!session.ok) return response.status(400).json({
+        notAuthorized: true,
         message: "Bad request! Not authorized."
     })
     
@@ -79,6 +74,7 @@ route.post("/chatroom.user.add", async(request, response)=> {
     let requestOk = reqChatroom?.id && reqUser?.email
 
     if (!requestOk) return response.status(400).json({
+        badRequest: true,
         message: "Bad request! Expected { chatroom { id String }, user { email String } }"
     }) 
 
@@ -88,6 +84,7 @@ route.post("/chatroom.user.add", async(request, response)=> {
         .first()
     if (!theUIC) return response.status(400).json({
         bad: "chatroom",
+        chatNotFound: true,
         message: "Chatroom does not exist, or you can not manage it."
     })
     let theChatroom = theUIC.chat
@@ -95,7 +92,14 @@ route.post("/chatroom.user.add", async(request, response)=> {
     let addedUser = await db.user.query().where("email", reqUser.email).first()
     if (!addedUser) return response.status(400).json({
         bad: "user",
+        userNotFound: true,
         message: "User does not exist."
+    })
+
+    if (addedUser.id == session.userId) return response.status(200).json({
+        success: true,
+        alreadyExists: true,
+        message: "You are already in this chat."
     })
 
     let now = Date.now()
@@ -119,6 +123,8 @@ route.post("/chatroom.user.add", async(request, response)=> {
             kickedAt: null
         })
         return response.status(200).json({
+            success: true,
+            alreadyExists: true,
             message: "Updated existing user in chatroom."
         })
     }
@@ -136,13 +142,15 @@ route.post("/chatroom.user.add", async(request, response)=> {
             lastReadAt: null
         })
         return response.status(200).json({
+            success: true,
+            added: true,
             message: "This user is already in chatroom."
         })
     }
 })
 
 route.post("/chatroom.user.setmode", async(request, response)=> {
-    let { logger, db, session } = request
+    let { logger, db, cache, session } = request
     if (!session.ok) return response.status(400).json({
         message: "Bad request! Not authorized."
     })
@@ -181,7 +189,7 @@ route.post("/chatroom.user.setmode", async(request, response)=> {
 })
 
 route.post("/chatroom.user.remove", async(request, response)=> {
-    let { logger, db, session } = request
+    let { logger, db, cache, session } = request
     if (!session.ok) return response.status(400).json({
         message: "Bad request! Not authorized."
     })

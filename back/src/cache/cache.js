@@ -13,7 +13,7 @@ class EntityCache {
     // get item by id and let it settle in cache
     async getById (id) {
         if (!this.dataMap[id]) {
-            let item = this.boundModel.query().findById(id)
+            let item = await this.boundModel.query().findById(id)
             if (!item) return
             this.dataArray.push(item)
             this.dataMap[id] = item

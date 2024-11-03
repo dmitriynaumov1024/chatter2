@@ -2,6 +2,7 @@ import { DbAdapter } from "better-obj"
 
 import { 
     User,
+    EmailVerification,
     UserSession,
     Chatroom,
     UserInChatroom,
@@ -15,6 +16,7 @@ class Chatter2DbAdapter extends DbAdapter
             // models must be supplied in the right order 
             // to avoid dependency issues
             user: User,
+            emailVerification: EmailVerification,
             userSession: UserSession,
             chatroom: Chatroom,
             userInChatroom: UserInChatroom,

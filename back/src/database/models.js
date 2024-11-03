@@ -43,6 +43,31 @@ export class User extends Model {
 }
 
 /*
+[1.1] relational EmailVerification
++ email: String pk
++ rejected: Boolean
++ verifyAt: Timestamp 
+*/
+export class EmailVerification extends Model {
+    static get props() {
+        return {
+            email: {
+                type: type.String,
+                rules: [ pk() ]
+            },
+            verifyAt: {
+                type: custom.Timestamp,
+                rules: [ ]
+            },
+            rejected: {
+                type: type.Boolean,
+                rules: [ ]
+            }
+        }
+    }
+}
+
+/*
 [2] relational UserSession
 + id: String pk
 + userId: String fk(User)
@@ -167,12 +192,13 @@ export class Chatroom extends Model {
 
     static createChunk (chatroom) {
         let now = Date.now()
-        let newChunk = {
+        let newChunk = new ChatroomChunk({
             id: uuid(),
             chatId: chatroom.id,
             startAt: now,
+            endAt: null,
             messages: [ ]
-        }
+        })
         return newChunk
     }
 
