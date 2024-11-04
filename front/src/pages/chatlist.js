@@ -46,7 +46,7 @@ const chatroomView = {
                     supportedChatActions[this.mode].map(act=> [
                         h("span", { class: ["color-gray"] }, " | "),
                         (chatroom.newMode == act)?
-                        h("span", { }, "\u2713 Marked as " + act) :
+                        h("span", { }, "Marked as " + act) :
                         h("a", { onClick: ()=> this.$emit("setMode", act) }, "Mark as " + act)
                     ])
                 ])
@@ -203,8 +203,8 @@ export default {
                         chatModes.map(mode=> h("div", { class: [ "clickable", "flex-grow", "text-center", mode==this.chatMode? "text-bold" : "link"], onClick: ()=> this.setChatMode(mode) }, chatFolderNames[mode]))
                     )
                 ]),
-                this.chatMode? null : 
-                h("button", { class: ["block", "mar-b-05"], onClick: ()=> this.beginCreateChat() }, "+ New chat"),
+                this.chatMode == "accepted"? 
+                h("button", { class: ["block", "pad-025", "mar-b-05"], onClick: ()=> this.beginCreateChat() }, "+ New chat") : null,
                 chatrooms.length?
                 h(chatroomListView, { 
                     chatrooms, currentMode: this.chatMode,

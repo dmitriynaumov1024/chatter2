@@ -127,8 +127,8 @@ h2 {
 }
 
 button {
-  background-color: rgba(128, 128, 128, 0.2);
-  border: 2px solid rgba(128, 128, 128, 0.2);
+  background-color: #eaeaea;
+  border: 2px solid #d0d0d0;
   box-shadow: none;
   border-radius: 0;
   background-image: none;
@@ -137,12 +137,12 @@ button {
 
 input {
   background-color: transparent;
-  border: 2px solid rgba(128, 128, 128, 0.2);
+  border: 2px solid #d0d0d0;
   border-radius: 0;
 }
 
 .chat-card[expanded="true"] {
-  
+  background-color: rgba(128, 128, 128, 0.13);
 }
 
 .one-line {
@@ -190,6 +190,12 @@ input {
   padding: 0.25rem;
 }
 
+.day-message {
+  margin: 0.5em 0;
+  text-align: center;
+  padding: 0.25rem;
+}
+
 .flex-stripe {
   display: flex;
   flex-direction: row;
@@ -213,7 +219,7 @@ input {
   height: 100vh;
   top: 0;
   left: 0;
-  background-color: rgba(180, 181, 183, 0.09);
+  background-color: rgba(230, 232, 236, 0.32);
   animation: backgroundfadein 0.2s;
   pointer-events: none;
 }
@@ -230,10 +236,10 @@ input {
 .modal-wrapper>.modal {
   position: relative;
   margin: 1.5rem auto;
-  width: 85%;
-  max-width: 330px;
+  width: 90%;
+  max-width: 324px;
   background-color: #ffffff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.17);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.11);
   border-radius: 0.25rem;
   animation: slidedown 0.3s;
   animation-timing-function: ease-in-out;

@@ -58,6 +58,17 @@ const sysMessageView = {
     }
 }
 
+const dayMessageView = {
+    props: {
+        timestamp: Number
+    },
+    render() {
+        return h("div", { class: ["day-message"] }, [
+            h("span", { }, timestampToDayMonthYear(this.timestamp, tz))
+        ])
+    }
+}
+
 const messageListView = {
     props: {
         users: Object,
@@ -71,6 +82,12 @@ const messageListView = {
         let result = [ ]
         for (let chunk of this.messageChunks) {
             for (let message of chunk.messages) {
+                if (!message) {
+                    continue
+                }
+                if (days(message.createdAt, tz) != days(prev.createdAt, tz)) {
+                    result.push(h(dayMessageView, { timestamp: message.createdAt }))
+                }
                 if (message.text) {
                     result.push(h(messageView, { message, users, own: message.userId == this.$storage.me.id }))
                 }
@@ -80,6 +97,7 @@ const messageListView = {
                         result.push(h(sysMessageView, { message }))
                     }
                 }
+                prev = message
             }
         }
         return h("div", { class: ["message-list"] }, result)
