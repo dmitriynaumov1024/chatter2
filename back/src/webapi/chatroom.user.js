@@ -219,11 +219,11 @@ route.post("/chatroom.user.remove", async(request, response)=> {
     })
 
     let addedUic = await db.userInChatroom.query()
-        .where("userId", addedUser.id).where("chatId", theChatroom.id).first()
+        .where("userId", addedUser.id).where("chatId", reqChatroom.id).first()
 
     if (addedUic) {
         await db.userInChatroom.query()
-        .where("userId", addedUser.id).where("chatId", theChatroom.id)
+        .where("userId", addedUser.id).where("chatId", reqChatroom.id)
         .patch({
             canWrite: false,
             canManage: false,
@@ -238,7 +238,7 @@ route.post("/chatroom.user.remove", async(request, response)=> {
         return response.status(200).json({
             success: true,
             user: { id: addedUser.id },
-            chatroom: { id: theChatroom.id },
+            chatroom: { id: reqChatroom.id },
             message: "Kicked existing user from chatroom."
         })
     }

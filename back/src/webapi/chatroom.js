@@ -55,7 +55,7 @@ route.post("/chatroom.index", async(request, response)=> {
         }
         // all users if they were updated
         if (chatroom.usersChangedAt > after) {
-            users = await db.userInChatroom.query().withGraphJoined("user").where("chatId", chatroom.id)
+            users = await db.userInChatroom.query().withGraphJoined("user").where("chatId", chatroom.id).whereNull("kickedAt")
         }
         if (chatroom.messagesChangedAt > after) {
             // first look for it in cache
@@ -77,19 +77,26 @@ route.post("/chatroom.index", async(request, response)=> {
     }
     // this means latest chunk and all users
     else {
-        users = await db.userInChatroom.query().withGraphJoined("user").where("chatId", chatroom.id)
+        users = await db.userInChatroom.query().withGraphJoined("user").where("chatId", chatroom.id).whereNull("kickedAt")
         chunk = cache.chatroomChunk.filter(c => c.chatId == chatroom.id && c.endAt == null).at(0)
         chunk ??= await cache.chatroomChunk.getByQuery(c => c.where("chatId", chatroom.id).whereNull("endAt").first())
     }
 
     return response.status(200).json({
-        users: users.map(uic=> ({
+        users: uic.canManage?
+        users.map(uic=> ({
             id: uic.user.id,
             email: uic.user.email,
-            canWrite: uic.canWrite,
-            canManage: uic.canManage,
+            canWrite: !!uic.canWrite,
+            canManage: !!uic.canManage,
             invitedAt: uic.invitedAt,
-            acceptedAt: uic.acceptedAt
+            acceptedAt: uic.acceptedAt,
+            rejectedAt: uic.rejectedAt,
+            kickedAt: uic.kickedAt
+        })) :
+        users.map(uic=> ({ 
+            id: uic.user.id,
+            email: uic.user.email
         })),
         chatroom: chatroom,
         messageChunk: chunk
