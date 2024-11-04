@@ -1,5 +1,6 @@
 import { h } from "vue"
 import modal from "../comp/modal.js"
+import checkbox from "../comp/checkbox.js"
 
 import { getTimeZone, timestampToHHMM, timestampToDayMonthYear, days, isValidEmail } from "../utils.js"
 
@@ -100,7 +101,9 @@ const messageListView = {
                 prev = message
             }
         }
-        return h("div", { class: ["message-list"] }, result)
+        return h("div", { class: ["message-list-wrapper"] }, [
+            h("div", { class: ["message-list"] }, result)
+        ])
     }
 }
 
@@ -114,15 +117,24 @@ export default {
             deletingChat: false,
             deletedChat: false,
             addingUser: false,
+            addedUser: {
+                emailNew: "",
+                email: "",
+                canWrite: false,
+                canManage: false
+            },
             addedUserEmailNew: "",
             addedUserEmail: "",
-            addingUserStatus: null
+            addingUserStatus: null,
+            selectedUser: null,
+            editedUser: null,
+            removedUser: null
         }
     },
     methods: {
-        async getIndex() {
+        async getIndex({ before, after } = { }) {
             let storage = this.$storage
-            let result = await this.$http.invoke("chatroom.index", { chatroom: { id: this.$temp.chat } })
+            let result = await this.$http.invoke("chatroom.index", { chatroom: { id: this.$temp.chat }, before, after })
             storage.chatroomChunks??= { }
             storage.users??= { }
             storage.chatrooms??= [ ]
@@ -162,15 +174,17 @@ export default {
                 this.deletedChat = true
             }
         },
-        async addUser(email) {
+        async addUser({ email, canWrite, canManage } = { }) {
             let storage = this.$storage
+            let chatroom = storage.chatrooms.find(c=> c.id == this.$temp.chat)
             let chatId = this.$temp.chat
-            let result = await this.$http.invoke("chatroom.user.add", { chatroom: { id: chatId }, user: { email } })
+            let result = await this.$http.invoke("chatroom.user.add", { chatroom: { id: chatId }, user: { email, canWrite, canManage } })
             let status = null
             if (result.success) {
                 this.addingUser = false
                 if (result.added) status = "added"
                 else if (result.alreadyExists) status = "alreadyExists"
+                this.getIndex({ after: Math.max(chatroom.messagesChangedAt, chatroom.usersChangedAt) })
             }
             else {
                 if (result.chatNotFound) status = "notAuthorized"
@@ -178,6 +192,15 @@ export default {
                 else status = "otherError"
             }
             this.addingUserStatus = status
+        },
+        async removeUser(userId) {
+            let storage = this.$storage
+            let chatId = this.$temp.chat
+            let chatroom = storage.chatrooms.find(c=> c.id == chatId)
+            let result = await this.$http.invoke("chatroom.user.remove", { chatroom: { id: chatId }, user: { id: userId } })
+            if (result.success) {
+                this.getIndex({ after: Math.max(chatroom.messagesChangedAt, chatroom.usersChangedAt) })
+            }
         },
         goToChatlist() {
             this.$goToPage("chatlist") 
@@ -218,9 +241,12 @@ export default {
             }
         },
         beginAddUser() {
-            this.addedUserEmail = ""
+            this.addedUser.email = ""
+            this.addedUser.canWrite = false
+            this.addedUser.canManage = false
             this.addingUser = true
             this.addingUserStatus = null
+            this.selectedUser = null
         },
         endAddUser(confirm) {
             if (!confirm) {
@@ -228,15 +254,24 @@ export default {
                 return
             }
             this.addingUserStatus = null
-            let email = this.addedUserEmailNew
-            this.addedUserEmail = email
+            let email = this.addedUser.emailNew
+            this.addedUser.email = email
             if (isValidEmail(email)) {
-                this.addUser(email)
+                this.addUser(this.addedUser)
             }
             else {
                 this.addingUserStatus = "notValidEmail"
             }
             // to do more
+        },
+        beginRemoveUser(user) {
+            this.removedUser = user
+        },
+        endRemoveUser(confirm) {
+            if (confirm) {
+                this.removeUser(this.removedUser.id)
+            } 
+            this.removedUser = null
         }
     },
     mounted() {
@@ -270,7 +305,7 @@ export default {
                 users: users, messageChunks: chunks
             }),
             // a modal window displaying details about user
-            h(modal, { display: this.showingMe, onClickOutside: ()=> this.endShowMe() }, ()=> h("div", { }, [
+            h(modal, { titleText: "My profile", display: this.showingMe, onClickOutside: ()=> this.endShowMe() }, ()=> h("div", { }, [
                 h("div", { class: ["mar-b-1"] }, [
                     h("h3", { class: ["mar-b-05"] }, me.email),
                     h("p", { class: ["color-gray"] }, me.id)
@@ -283,8 +318,8 @@ export default {
                 ]) :
                 h("button", { class: ["block"], onClick: ()=> this.beginLogout() }, "Log out")
             ])),
-            // a modal displaying group controls
-            h(modal, { display: this.showingControls && !!users, onClickOutside: ()=> this.endShowControls() }, ()=> h("div", { }, [
+            // a modal displaying chatroom controls
+            h(modal, { titleText: "Chatroom details", display: this.showingControls && !!users, onClickOutside: ()=> this.endShowControls() }, ()=> h("div", { }, [
                 h("div", { class: ["mar-b-1"] }, [
                     h("h3", { class: ["mar-b-05"] }, chatroom.title),
                     h("div", { class: ["mar-b-05"] }, [
@@ -316,11 +351,15 @@ export default {
                     // to do add user 
                     me2.canManage? [
                     this.addingUser?
-                        h("div", { class: ["mar-b-05"] }, [
+                        h("div", { class: ["mar-b-1", "pad-b-05", "bb"] }, [
                             h("p", { }, "Add user by E-mail"),
                             this.addingUserStatus?
-                            h("p", { class: ["mar-b-05"] }, (addUserStatusTexts[this.addingUserStatus] || addUserStatusTexts.default)(this.addedUserEmail)) : null,
-                            h("input", { class: ["block", "mar-b-05"], onInput: (e)=> this.addedUserEmailNew = e.target.value, placeholder: "mail@example.com" }),
+                            h("p", { class: ["mar-b-05"] }, (addUserStatusTexts[this.addingUserStatus] || addUserStatusTexts.default)(this.addedUser.email)) : null,
+                            h("input", { class: ["block", "mar-b-05"], onInput: (e)=> { this.addedUser.emailNew = e.target.value }, placeholder: "mail@example.com" }),
+                            h("div", { class: ["mar-b-05"] }, [
+                                h(checkbox, { value: this.addedUser.canWrite, onChange: (v)=> { this.addedUser.canWrite = v } }, ()=> "Can write"), " : : ",
+                                h(checkbox, { value: this.addedUser.canManage, onChange: (v)=> { this.addedUser.canManage = v } }, ()=> "Can manage")
+                            ]),
                             h("div", { class: ["flex-stripe", "flex-pad-05"] }, [
                                 h("button", { class: ["flex-grow", "color-bad"], onClick: ()=> this.endAddUser(false) }, "Cancel"),
                                 h("button", { class: ["flex-grow"], onClick: ()=> this.endAddUser(true) }, "Add user")
@@ -328,12 +367,33 @@ export default {
                         ]) :
                         h("div", { class: ["mar-b-05"] }, [
                             this.addingUserStatus?
-                            h("p", { class: ["mar-b-05"] }, (addUserStatusTexts[this.addingUserStatus] || addUserStatusTexts.default)(this.addedUserEmail)) : null,
+                            h("p", { class: ["mar-b-05"] }, (addUserStatusTexts[this.addingUserStatus] || addUserStatusTexts.default)(this.addedUser.email)) : null,
                             h("button", { class: ["block", "mar-b-05"], onClick: ()=> this.beginAddUser() }, "+ Add user"),
                         ]),
                     ] : null,
+                    me2.canManage? 
                     h("div", { class: ["max-height-15"] }, [
-                        users.map(user=> h("p", { }, user.email))
+                        users.map(user=> h("div", { class: ["user-card", "pad-b-05"], expanded: this.selectedUser==user.id }, [
+                            h("p", { class: ["clickable"], onClick: ()=> { this.selectedUser = user.id } }, user.email),
+                            h("div", { class: [], display: this.selectedUser==user.id }, [
+                                h(checkbox, { value: user.canWrite }, ()=> "Can write"), " : : ",
+                                h(checkbox, { value: user.canManage }, ()=> "Can manage")
+                            ]),
+                            (this.removedUser && (this.removedUser==user))?
+                            [
+                                h("p", { }, "Remove this user from the chatroom? Chatroom managers can add them back later."),
+                                h("div", { class: ["flex-stripe", "flex-pad-05"] }, [
+                                    h("button", { class: ["flex-grow"], onClick: ()=> this.endRemoveUser(false) }, "Cancel"),
+                                    h("button", { class: ["flex-grow", "color-bad"], onClick: ()=> this.endRemoveUser(true) }, h("b", "Remove"))
+                                ])
+                            ]:
+                            h("p", { class: [], display: (this.selectedUser==user.id && chatroom.ownerId!=user.id) }, [ "To remove this user ",
+                                h("a", { class: ["color-bad"], onClick: ()=> this.beginRemoveUser(user) }, "click here")
+                            ])
+                        ]))
+                    ]) :
+                    h("div", { class: ["max-height-15"] }, [
+                        users.map(user=> h("p", { class: ["mar-b-05"] }, user.email))
                     ])
                 ])
             ]))

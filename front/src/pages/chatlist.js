@@ -213,14 +213,17 @@ export default {
                 }) :
                 h("div", { class: ["text-center", "pad05"] }, "No chats so far..."),
                 // a modal window for create new chat
-                h(modal, { display: this.creatingChat, onClickOutside: ()=> this.completeCreateChat(false) }, ()=> h("div", { }, [
-                    h("h3", { class: ["mar-b-1"] }, "Create new chat"),
+                h(modal, { titleText: h("b", "Create new chat"), display: this.creatingChat, onClickOutside: ()=> this.completeCreateChat(false) }, ()=> h("div", { }, [
+                    h("p", { class: ["mar-b-1"] }, [
+                        "You (", me.email, ") will be automatically added to the chat with Write and Manage privileges. ",
+                        "You can later find the chat in your 'Active' tab."
+                    ]),
                     h("p", { }, "Chatroom title"),
                     h("input", { class: ["block", "mar-b-05"], value: this.chatTitle, onInput: (e)=> this.chatTitle = e.target.value }),
                     h("button", { class: ["block"], onClick: ()=> this.completeCreateChat(true) }, "Create")
                 ])),
                 // a modal window displaying details about user
-                h(modal, { display: this.showingMe, onClickOutside: ()=> this.endShowMe() }, ()=> h("div", { }, [
+                h(modal, { titleText: "My profile", display: this.showingMe, onClickOutside: ()=> this.endShowMe() }, ()=> h("div", { }, [
                     h("div", { class: ["mar-b-1"] }, [
                         h("h3", { class: ["mar-b-05"] }, me.email),
                         h("p", { class: ["color-gray"] }, me.id)
