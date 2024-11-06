@@ -1,8 +1,10 @@
 var/
+back-fiddle/
 build/
 dist/
 node_modules/
 .vscode/
 .DS_Store/
 
+.env
 package-lock.json
