@@ -67,12 +67,17 @@ client app { session { id, token, refreshAt } }
 assuming session is valid
 client app sends POST chatroom.message.edit { session { id, token }, chatroom { id: String }, chatroomChunk { id: String }, message { id, text } }
 
-11. add user to chatroom
+11. add user to chatroom, or modify user permissions
 client app { session { id, token, refreshAt } }
 assuming session is valid
-client app sends POST chatroom.user.add { session { id, token }, chatroom { id }, user { email } }
+client app sends POST chatroom.user.add { session { id, token }, chatroom { id }, user { email String, canWrite Boolean, canManage Boolean } }
 
-12. remove user from chatroom, or remove self
+12. move chat to category (invited/accepted/rejected)
+client app { session { id, token, refreshAt } }
+assuming session is valid
+client app sends POST chatroom.user.setmode { session { id, token }, chatroom { id String, mode String } }
+
+13. remove (kick) user from chatroom
 client app { session { id, token, refreshAt } }
 assuming session is valid
 client app sends POST chatroom.user.remove { session { id, token }, chatroom { id }, user { id, email } }
