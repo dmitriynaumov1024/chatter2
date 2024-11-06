@@ -16,8 +16,8 @@ let query = qs.parse(querystring)
 let lsKey = "app.chatter.light." + (query.context || "default")
 
 // pages
-import beginAuth from "./pages/beginAuth.js"
-import continueAuth from "./pages/continueAuth.js"
+import beginAuth from "./pages/auth-begin.js"
+import continueAuth from "./pages/auth-continue.js"
 import chatlist from "./pages/chatlist.js"
 import chatroom from "./pages/chatroom.js"
 import index from "./pages/index.js"
@@ -48,7 +48,9 @@ let app = createApp({
         }
     },
     render() {
-        return h("div", { class: ["width-container"] }, [
+        // this container is fixed position, full width and full height.
+        // each page does what's the best for it.
+        return h("div", { class: ["layer-0", "hfull", "w100"] }, [
             h(pages[this.$temp.page]??pages.index, { })
         ])
     }
@@ -81,6 +83,16 @@ app.config.globalProperties.$logout = function() {
         this.$http.session = { }
     }, 100)
 }
+
+function setHeight () {
+    let hf = window.innerHeight
+    document.body.style.setProperty("--height-full", hf+"px")
+}
+
+setTimeout(()=> {
+    setHeight()
+    window.addEventListener("resize", setHeight)
+}, 100)
 
 app.mount("#app")
 window.app = app

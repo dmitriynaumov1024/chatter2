@@ -7,16 +7,122 @@
 }
 
 body {
+  padding: 0;
   margin: 0;
   font-family: Arimo, Arial, sans-serif;
   font-size: 16px;
   line-height: 1.5;
 }
 
+/* the logical layout root */
+div#app {
+}
+
+.hfull {
+  height: var(--height-full);
+  min-height: 360px;
+}
+
+.layer-0 {
+  position: fixed;
+}
+
+.layer-1 {
+  position: fixed;
+  z-index: 10;
+}
+
+.layer-2 {
+  position: fixed;
+  z-index: 40;
+}
+
+.flex-v {
+  display: flex;
+  flex-direction: column;
+}
+
+.scroll {
+  overflow: auto;
+}
+
+/* The width. Units are ww (outer width container, resizable), wc (inner width cont., resizable), w100 (always 100% width), ws (small width) */
+.ww, .wc, .ws {
+  margin-right: auto;
+  margin-left: auto;
+}
+.ww {
+  width: 100%;
+  min-width: 360px;
+}
+.wc {
+  width: 360px;
+}
+.ws {
+  width: 324px;
+}
+.w100 {
+  width: 100%;
+}
+.h100 {
+  height: 100%;
+}
+
+@media screen and (min-width: 490px) {
+  .wc {
+    width: 480px;
+  }
+  .ws {
+    width: 420px;
+  }
+  .ww {
+    max-width: 720px;
+  }
+}
+
+@media screen and (min-width: 728px) {
+  .wc {
+    width: 720px;
+  }
+  .ws {
+    width: 640px;
+  }
+  div#app::before {
+    position: fixed;
+    left: 50%;
+    height: 100vh;
+    width: 720px;
+    transform: translateX(-50%);
+    content: " ";
+    z-index: -1;
+    pointer-events: none;
+    border-right: 2.5px solid rgba(128, 128, 129, 0.22);
+    border-left: 2.5px solid rgba(128, 128, 129, 0.22);
+  }
+}
+
+@media screen and (min-width: 1940px) {
+  .wc {
+    width: 1080px;
+  }
+  .ww {
+    max-width: 1400px;
+  }
+  div#app::before {
+    width: 1400px;
+  }
+}
+
+.width-container {
+  min-height: 50%;
+  max-height: 100%;
+}
+
 a, .link {
   cursor: pointer;
   color: #1161de;
   text-decoration: underline;
+  user-select: none;
 }
 
 h1, h2, h3, h4, h5, h6, b {
@@ -61,20 +167,23 @@ h2 {
   margin: auto;
 }
 
+.height-10 {
+  height: 10rem;
+  resize: none;
+}
+
 .max-height-10 {
   max-height: 10rem;
-  overflow-y: auto;
 }
 
 .max-height-15 {
   max-height: 15rem;
-  overflow-y: auto;
 }
 
-/*.full-height {
+.full-height {
   height: 100%;
-  overflow-y: scroll;
-}*/
+  min-height: 10rem;
+}
 
 .pad-025.pad-025 {
   padding: 0.25rem;
@@ -86,6 +195,10 @@ h2 {
 
 .pad-0-05.pad-0-05 {
   padding: 0 0.5rem;
+}
+
+.pad-1-05.pad-1-05 {
+  padding: 1rem 0.5rem;
 }
 
 .pad-b-05.pad-b-05 {
@@ -130,6 +243,40 @@ h2 {
   background-color: rgba(128, 128, 128, 0.1);
 }
 
+.shaded {
+  background-color: rgba(128, 128, 128, 0.1);
+}
+
+.icon-10, .icon-1 {
+  height: 1rem;
+  display: inline;
+  vertical-align: middle;
+} 
+
+.icon-15 {
+  height: 1.5rem;
+  display: inline;
+  vertical-align: middle;
+}
+
+.icon-20 {
+  height: 2rem;
+  display: inline;
+  vertical-align: middle;
+}
+
+.width-50p {
+  width: 50%;
+}
+
+.height-100p {
+  height: 100%;
+}
+
+.elevated {
+  z-index: 2;
+}
+
 button {
   background-color: #eeeeee;
   border: 2px solid #d0d0d0;
@@ -142,6 +289,14 @@ button {
 input {
   background-color: transparent;
   border: 2px solid #d0d0d0;
+  border-radius: 0;
+}
+
+textarea {
+  width: 100%;
+  background-color: transparent;
+  border: 2px solid #d0d0d0;
+  resize: none;
   border-radius: 0;
 }
 
@@ -182,6 +337,10 @@ input {
   text-overflow: ellipsis;
 }
 
+.no-border.no-border {
+  border: none;
+} 
+
 .chat-preview-dot {
   background-color: #e03434;
   width: 0.75em;
@@ -194,27 +353,36 @@ input {
   transform: translateY(-50%);
 }
 
-.message-list-wrapper {
+.message-send-button {
+  background-color: #1161de;
+  border: none;
   position: absolute;
-  top: 0;
-  width: 100%;
-  height: 100vh;
-  z-index: -1;
-  padding: 4rem 0 3rem;
+  z-index: 4;
+  bottom: 1.5rem;
+  right: 1rem;
+  border-radius: 1.2rem;
+  padding: 0.8rem 1.2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.message-list-wrapper {
+  padding: 0 0 3rem;
 }
 
 .message-list {
   position: relative;
   height: 100%;
   overflow-y: scroll;
+  padding: 0.5rem 0.5rem 2.5rem;
 }
 
 .message {
   margin: 0.125em;
   padding: 0.125em 0.75em;
   background-color: #fefefe;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
-  border-radius: 0.25em;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.08);
+  border-radius: 0.75em;
+  border: 1px solid #e0e0e0;
 }
 
 .message[own="true"] {
@@ -228,7 +396,7 @@ input {
 }
 
 .system-message {
-  margin: 0.125em 0;
+  margin: 0.25em 0;
   text-align: center;
   background-color: rgba(0, 0, 0, 0.06);
   border-radius: 0;

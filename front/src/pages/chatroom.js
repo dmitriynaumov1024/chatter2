@@ -31,7 +31,7 @@ const addUserStatusTexts = {
 const messageView = {
     props: {
         own: Boolean,
-        users: Object,
+        userName: Object,
         message: Object
     },
     emits: [
@@ -39,9 +39,9 @@ const messageView = {
     ],
     render() {
         return h("div", { class: ["message"], own: this.own }, [
-            h("p", { class: ["mar-b-05"] }, users.find(u=> u.id == message.userId).email || message.userId),
-            h("p", { class: [] }, message.text),
-            h("p", { class: ["text-right", "text-090", "color-gray"] }, timestampToHHMM(message.createdAt, tz))
+            h("p", { class: [] }, h("b", { }, this.userName)),
+            h("p", { class: [] }, this.message.text),
+            h("p", { class: ["text-right", "text-090", "color-gray"] }, timestampToHHMM(this.message.createdAt, tz))
         ])
     }
 }
@@ -90,7 +90,7 @@ const messageListView = {
                     result.push(h(dayMessageView, { timestamp: message.createdAt }))
                 }
                 if (message.text) {
-                    result.push(h(messageView, { message, users, own: message.userId == this.$storage.me.id }))
+                    result.push(h(messageView, { message, userName: this.users.find(u=> u.id==message.userId)?.email || message.userId, own: message.userId == this.$storage.me.id }))
                 }
                 else if (message.event) {
                     if (actionTexts[message.event.entityType] && 
@@ -101,8 +101,19 @@ const messageListView = {
                 prev = message
             }
         }
-        return h("div", { class: ["message-list-wrapper"] }, [
-            h("div", { class: ["message-list"] }, result)
+        return h("div", { class: ["message-list-wrapper", "flex-grow", "scroll"] }, [
+            h("div", { class: ["pad-05"] }, result)
+        ])
+    }
+}
+
+const messageSenderIcon = {
+    render() {
+        return h("svg", { viewBox: "0 0 10 10" }, [
+            h("g", { "fill": "#f8f9fc", "stroke": "none" }, [
+                h("path", { d: "M 1.5 8.5 L 2 6 L 4 8 Z" }),
+                h("path", { d: "M 2.5 5.5 L 4.5 7.5 L 9 3 L 7 1 Z" })
+            ])
         ])
     }
 }
@@ -114,21 +125,25 @@ export default {
             showingMe: false,
             showingControls: false,
             loggingOut: false,
+            
             deletingChat: false,
             deletedChat: false,
+            
             addingUser: false,
+            addingUserStatus: null,
             addedUser: {
                 emailNew: "",
                 email: "",
                 canWrite: false,
                 canManage: false
             },
-            addedUserEmailNew: "",
-            addedUserEmail: "",
-            addingUserStatus: null,
+            
             selectedUser: null,
             editedUser: null,
-            removedUser: null
+            removedUser: null,
+
+            sendingMessage: false,
+            messageText: ""
         }
     },
     methods: {
@@ -202,6 +217,16 @@ export default {
                 this.getIndex({ after: Math.max(chatroom.messagesChangedAt, chatroom.usersChangedAt) })
             }
         },
+        async sendMessage(messageText) {
+            let storage = this.$storage
+            let chatId = this.$temp.chat
+            let chatroom = storage.chatrooms.find(c=> c.id == this.$temp.chat)
+            let result = await this.$http.invoke("chatroom.message.send", { chatroom: { id: chatId }, message: { text: messageText } })
+            if (result.success) {
+                this.messageText = ""
+                this.getIndex({ after: Math.max(chatroom.messagesChangedAt, chatroom.usersChangedAt) })
+            }
+        },
         goToChatlist() {
             this.$goToPage("chatlist") 
         },
@@ -272,13 +297,27 @@ export default {
                 this.removeUser(this.removedUser.id)
             } 
             this.removedUser = null
+        },
+        beginSendMessage() {
+            this.sendingMessage = true
+            console.log(this.$refs.messageInput)
+            setTimeout(()=> this.$refs.messageInput.focus(), 60)
+        },
+        endSendMessage(confirm, erase) {
+            if (erase) {
+                this.messageText = "" 
+            }
+            if (confirm) {
+                this.sendMessage(this.messageText)
+            }
+            this.sendingMessage = false
         }
     },
     mounted() {
         this.getIndex()
     },
     render() {
-        if (!this.loaded) return h("div", { class: ["pad-05"] }, [
+        if (!this.loaded) return h("div", { class: ["ww", "pad-05"] }, [
             h("h2", { class: ["mar-b-05"] }, "Chatroom"),
             h("p", { }, "Loading...")
         ])
@@ -293,17 +332,20 @@ export default {
             h("p", { class: ["mar-b-05"] }, "You deleted this chatroom. Click the button below to go to chat list."),
             h("button", { class: ["block", "pad-05"], onClick: ()=> this.goToChatlist() }, "Go to Chat list")
         ])
-        return h("div", { class: ["full-height", "pad-05"] }, [
-            h("div", { class: ["mar-b-1", "bb"] }, [
-                h("h2", { class: ["clickable"], onClick: ()=> this.beginShowControls() }, chatroom.title),
-                me? h("p", { class: ["mar-b-05"] }, [
-                    h("span", { }, "Signed in as "),  
-                    h("a", { onClick: ()=> this.beginShowMe() }, me.email)
-                ]) : null
+        return h("div", { class: ["ww", "h100", "flex-v"] }, [
+            h("div", { class: ["bb"] }, [
+                h("div", { class: ["wc", "pad-05"] }, [
+                    h("h2", { class: ["clickable"], onClick: ()=> this.beginShowControls() }, chatroom.title),
+                    me? h("p", { }, [
+                        h("span", { }, "Signed in as "),  
+                        h("a", { onClick: ()=> this.beginShowMe() }, me.email)
+                    ]) : null
+                ]),
             ]),
             h(messageListView, { 
                 users: users, messageChunks: chunks
             }),
+            h("div", { style: { "height": "2.5rem", "flex-shrink": 0 } }, ""),
             // a modal window displaying details about user
             h(modal, { titleText: "My profile", display: this.showingMe, onClickOutside: ()=> this.endShowMe() }, ()=> h("div", { }, [
                 h("div", { class: ["mar-b-1"] }, [
@@ -396,7 +438,18 @@ export default {
                         users.map(user=> h("p", { class: ["mar-b-05"] }, user.email))
                     ])
                 ])
-            ]))
+            ])),
+            // a modal message sender
+            h(modal, { titleText: "Send message", display: this.sendingMessage, onClickOutside: ()=> this.endSendMessage(false) }, ()=> h("div", { }, [
+                h("textarea", { class: ["block", "height-10", "mar-b-05", "no-border"], ref: "messageInput", value: this.messageText, onChange: (e)=> { this.messageText = e.target.value } }),
+                h("div", { class: ["flex-stripe", "flex-pad-05"] }, [
+                    this.messageText?
+                    h("span", { class: ["flex-grow", "clickable", "text-center", "color-bad", "pad-025"], onClick: ()=> this.endSendMessage(false, true) }, "\u2a2f Erase") :
+                    h("span", { class: ["flex-grow", "clickable", "text-center", "color-bad", "pad-025"], onClick: ()=> this.endSendMessage(false) }, "Cancel"),
+                    h("button", { class: ["width-50p", "pad-025"], onClick: ()=> this.endSendMessage(true) }, h("b", "Send"))
+                ])
+            ])),
+            h("button", { class: ["message-send-button"], display: !this.sendingMessage, onClick: ()=> this.beginSendMessage() }, h(messageSenderIcon, { class: ["icon-20"] }))
         ])
     }
 }

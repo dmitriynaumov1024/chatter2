@@ -60,7 +60,7 @@ const chatroomView = {
                     supportedChatActions[this.mode].map(act=> [
                         h("span", { class: ["color-gray"] }, " | "),
                         (chatroom.newMode == act)?
-                        h("span", { }, "\u2713 Marked as " + act) :
+                        h("span", { }, "Marked as " + act) :
                         h("a", { onClick: ()=> this.$emit("setMode", act) }, "Mark as " + act)
                     ])
                 ])
@@ -98,7 +98,7 @@ const chatroomListView = {
         }
     },
     render() {
-        return this.$storage.chatrooms.map(chatroom=> {
+        return this.chatrooms.map(chatroom=> {
             let chunks = this.$storage.chatroomChunks? this.$storage.chatroomChunks[this.chatroomId] : null
             let mode = this.currentMode
             return h(chatroomView, { 
@@ -189,29 +189,38 @@ export default {
             let me = this.$storage.me
             let chatrooms = this.$storage.chatrooms.map(c => c)
             // newest first
-            chatrooms.sort((c1, c2)=> c2.messagesChangedAt - c1.messagesChangedAt)
-            return h("div", { class: ["full-height", "pad-05"] }, [
-                h("div", { class: ["mar-b-05", "bb"] }, [
-                    h("h2", { }, "My chatlist"),
-                    h("p", { class: ["mar-b-05"] }, [
-                        h("span", { }, "Signed in as "),  
-                        h("a", { onClick: ()=> this.beginShowMe() }, me.email)
+            chatrooms = chatrooms.sort((c1, c2)=> c2.messagesChangedAt - c1.messagesChangedAt)
+            return h("div", { class: ["ww", "h100", "flex-v"] }, [
+                h("div", { }, [
+                    h("div", { class: ["bb"] }, [
+                        h("div", { class: ["wc", "pad-05"] }, [
+                            h("h2", { }, "My chatlist"),
+                            h("p", { }, [
+                                h("span", { }, "Signed in as "),  
+                                h("a", { onClick: ()=> this.beginShowMe() }, me.email)
+                            ]),
+                        ])
+                    ]),
+                    h("div", { class: ["bb"] }, [
+                        h("div", { class: ["wc", "pad-0-05"] }, [
+                            h("div", { class: ["flex-stripe"] }, 
+                                chatModes.map(mode=> h("div", { class: ["pad-05", "clickable", "flex-grow", "text-center", mode==this.chatMode? ["text-bold", "shaded"] : "link"], onClick: ()=> this.setChatMode(mode) }, chatFolderNames[mode]))
+                            )
+                        ])
                     ]),
                 ]),
-                h("div", { class: ["mar-b-1", "bb"] }, [
-                    h("div", { class: ["flex-stripe", "mar-b-05"] }, 
-                        chatModes.map(mode=> h("div", { class: [ "clickable", "flex-grow", "text-center", mode==this.chatMode? "text-bold" : "link"], onClick: ()=> this.setChatMode(mode) }, chatFolderNames[mode]))
-                    )
+                h("div", { class: ["wc", "pad-1-05", "flex-grow", "scroll"] }, [
+                    this.chatMode == "accepted"? 
+                    h("button", { class: ["block", "pad-025", "mar-b-05"], onClick: ()=> this.beginCreateChat() }, "+ New chat") : null,
+                    chatrooms.length?
+                    h(chatroomListView, { 
+                        chatrooms, currentMode: this.chatMode,
+                        onGoToChat: (id)=> this.goToChat(id),
+                        onSetChatMode: (id, mode)=> this.setModeForChat(id, mode)
+                    }) :
+                    h("div", { class: ["text-center", "pad05"] }, "No chats so far..."),
+                    
                 ]),
-                this.chatMode == "accepted"? 
-                h("button", { class: ["block", "pad-025", "mar-b-05"], onClick: ()=> this.beginCreateChat() }, "+ New chat") : null,
-                chatrooms.length?
-                h(chatroomListView, { 
-                    chatrooms, currentMode: this.chatMode,
-                    onGoToChat: (id)=> this.goToChat(id),
-                    onSetChatMode: (id, mode)=> this.setModeForChat(id, mode)
-                }) :
-                h("div", { class: ["text-center", "pad05"] }, "No chats so far..."),
                 // a modal window for create new chat
                 h(modal, { titleText: h("b", "Create new chat"), display: this.creatingChat, onClickOutside: ()=> this.completeCreateChat(false) }, ()=> h("div", { }, [
                     h("p", { class: ["mar-b-1"] }, [
@@ -238,7 +247,7 @@ export default {
                 ]))
             ]) 
         }
-        else return h("div", { class: ["pad-05"] }, [
+        else return h("div", { class: ["wc", "pad-05"] }, [
             h("div", { }, [
                 h("p", { }, "Loading, please wait. If it gets stuck for more than 10 seconds, reload the page manually.")
             ])
