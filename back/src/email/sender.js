@@ -40,9 +40,12 @@ export function mailjet (options = { }) {
 }
 
 // this creates a fake sender that just logs to logger.
-export function $default (logger) {
+export function $default (options = { }) {
+    let logger = options.logger
+    logger?.log("Using stub/fake email sender")
     return {
         async send ({ sender, recipient, subject, text }) {
+            if (!logger) return
             logger.warn("From:    "+sender.email+" : "+sender.name)
             logger.warn("To:      "+recipient.email)
             logger.warn("Subject: "+subject)

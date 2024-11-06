@@ -57,7 +57,7 @@ class EntityCache {
             return
         }
         this.dataMap[id] = item
-        console.log(`put ${item.constructor.name} ${id}`)
+        // console.log(`put ${item.constructor.name} ${id}`)
         if (!present) {
             this.dataArray.push(item)
         }

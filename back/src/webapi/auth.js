@@ -129,7 +129,7 @@ route.post("/auth.begin", async (request, response)=> {
     })
     
     // this is a stub!
-    logger.warn(`Short code for ${email} is <${userSession.shortCode}>.`)
+    // logger.warn(`Short code for ${email} is <${userSession.shortCode}>.`)
     emailer.send({
         sender: {
             email: process.env.MAIL_SENDER_EMAIL,

@@ -61,19 +61,23 @@ route.post("/chatroom.index", async(request, response)=> {
             // first look for it in cache
             chunk = cache.chatroomChunk.filter(c => c.chatId == chatroom.id && c.startAt <= after && (c.endAt > after || c.endAt == null)).at(0)
             chunk ??= await cache.chatroomChunk.getByQuery(
-                c => c.where("chatId", chatroom.id).where("startAt", "<=", after)
+                c => c.where("chatId", chatroom.id).where("startAt", "<=", after+100)
                 .where(ch => ch.where("endAt", ">", after).orWhereNull("endAt")).first()
             )
-            logger.warn("aaaa~")
-            // patch insted of sending everything
-            chunk = Object.assign({ }, chunk, { patch: true, messages: chunk.messages.filter(m=> m.createdAt >= after) })
+            if (chunk) {
+                // patch insted of sending everything
+                chunk = Object.assign({ }, chunk, { patch: true, messages: chunk.messages.filter(m=> m.createdAt >= after) })
+            }
+            else {
+                chunk = { empty: true }
+            }
         }
     }
     // history
     else if (before > 0) {
         chunk = cache.chatroomChunk.filter(c => c.chatId == chatroom.id && c.startAt < before && c.endAt >= before).at(0)
         chunk ??= await cache.chatroomChunk.getByQuery(
-            c => c.where("chatId", chatroom.id).where("endAt", ">=", before).where("startAt", "<", before).first() 
+            c => c.where("chatId", chatroom.id).where("endAt", ">=", before-100).where("startAt", "<", before).first() 
         )
     }
     // this means latest chunk and all users
@@ -149,6 +153,7 @@ route.post("/chatroom.create", async(request, response)=> {
     let user = await db.user.query().findById(session.userId)
 
     let chunk = chatroom.createChunk()
+    chunk.startAt = now
     chunk.messages.push({
         id: uuid(),
         createdAt: now,
