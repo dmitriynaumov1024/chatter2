@@ -65,7 +65,7 @@ route.post("/auth", async (request, response)=> {
 
 route.post("/auth.begin", async (request, response)=> {
     await timeout(250)
-    let { db, logger } = request
+    let { db, logger, emailer } = request
     let email = request.body.email
     if (!email) return response.status(400).json({
         message: "Bad request! Required body { email String }"
@@ -130,6 +130,17 @@ route.post("/auth.begin", async (request, response)=> {
     
     // this is a stub!
     logger.warn(`Short code for ${email} is <${userSession.shortCode}>.`)
+    emailer.send({
+        sender: {
+            email: process.env.MAIL_SENDER_EMAIL,
+            name: process.env.MAIL_SENDER_NAME
+        },
+        recipient: {
+            email: email
+        },
+        subject: "Confirmation code",
+        text: `Your short code for Chatter Lite is ${userSession.shortCode}.\nIf you did not request this code - please ignore it.\n\nChatter : : ${(new Date()).toISOString()}`
+    })
 
     return response.status(200).json({
         session: { id: userSession.id },

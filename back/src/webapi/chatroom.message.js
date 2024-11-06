@@ -17,7 +17,7 @@ route.post("/chatroom.message.send", async(request, response)=> {
     
     let uic = await db.userInChatroom.query()
         .where("userId", session.userId)
-        .where("chatId", reqChatroom.id)
+        .where("chatId", chatroom.id)
         .first()
     let uicOk = uic && uic.canWrite && uic.kickedAt == null
     if (!uicOk) return response.status(400).json({
@@ -25,14 +25,14 @@ route.post("/chatroom.message.send", async(request, response)=> {
     })
 
     message.text = message.text.slice(0, 10000)
-    theChatroom = await cache.chatroom.getById(chatroom.id)
+    let theChatroom = await cache.chatroom.getById(chatroom.id)
 
     let chunk = cache.chatroomChunk.filter(c => c.chatId == chatroom.id && c.endAt == null).at(0)
     chunk ??= await cache.chatroomChunk.getByQuery(c=> c.where("chatId", chatroom.id).whereNull("endAt").first())
 
     let now = Date.now()
     theChatroom.messagesChangedAt = now
-    await cache.chatroom.pushById(theChatroom.id)
+    await cache.chatroom.pushById(chatroom.id)
 
     chunk.messages.push({
         id: uuid(),
@@ -42,10 +42,10 @@ route.post("/chatroom.message.send", async(request, response)=> {
     })
     if (theChatroom.isFullChunk(chunk)) {
         let newChunk = theChatroom.sealChunk(chunk)
-        cache.messageChunk.put(newChunk)
-        await cache.messageChunk.pushById(newChunk.id)
+        cache.chatroomChunk.put(newChunk)
+        await cache.chatroomChunk.pushById(newChunk.id)
     }
-    await cache.messageChunk.pushById(chunk.id)
+    await cache.chatroomChunk.pushById(chunk.id)
 
     return response.status(200).json({
         success: true
@@ -66,7 +66,7 @@ route.post("/chatroom.message.edit", async(request, response)=> {
     
     let uic = await db.userInChatroom.query()
         .where("userId", session.userId)
-        .where("chatId", reqChatroom.id)
+        .where("chatId", chatroom.id)
         .first()
     let uicOk = uic && uic.canWrite && uic.kickedAt == null
     if (!uicOk) return response.status(400).json({
@@ -74,7 +74,7 @@ route.post("/chatroom.message.edit", async(request, response)=> {
     })
 
     message.text = message.text.slice(0, 10000)
-    theChatroom = await cache.chatroom.getById(chatroom.id)
+    let theChatroom = await cache.chatroom.getById(chatroom.id)
 
     // get latest chunk.
     let chunk = cache.chatroomChunk.filter(c => c.chatId == chatroom.id && c.endAt == null).at(0)
@@ -96,10 +96,10 @@ route.post("/chatroom.message.edit", async(request, response)=> {
     })
     if (theChatroom.isFullChunk(chunk)) {
         let newChunk = theChatroom.sealChunk(chunk)
-        cache.messageChunk.put(newChunk)
-        await cache.messageChunk.pushById(newChunk.id)
+        cache.chatroomChunk.put(newChunk)
+        await cache.chatroomChunk.pushById(newChunk.id)
     }
-    await cache.messageChunk.pushById(chunk.id)
+    await cache.chatroomChunk.pushById(chunk.id)
 
     // user should do chatroom index again to see own message.
     return response.status(200).json({

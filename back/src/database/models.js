@@ -181,6 +181,7 @@ export class Chatroom extends Model {
             id: uuid(),
             chatId: chatroom.id,
             startAt: now,
+            endAt: null,
             messages: [ ]
         }
         return newChunk

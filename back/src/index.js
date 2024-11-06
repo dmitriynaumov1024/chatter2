@@ -16,6 +16,16 @@ await dbAdapter.createDb()
 import { Chatter2CacheAdapter } from "./cache/cache.js"
 let cacheAdapter = new Chatter2CacheAdapter(dbAdapter)
 
+import { mailSenders } from "./email/sender.js"
+let createMailSender = mailSenders[process.env.MAIL_PROVIDER]
+let mailSender = createMailSender? 
+    createMailSender({ 
+        apiKey: process.env.MAIL_API_KEY, 
+        secretKey: process.env.MAIL_API_SECRET,
+        logger: logger
+    }): 
+    mailSenders.default(logger)
+
 import { createServer } from "better-express"
 let server = createServer({
     https: true,
@@ -32,7 +42,8 @@ import { requestItemProvider } from "./middleware/request-item-provider.js"
 server.http.use(requestItemProvider({
     logger: ()=> logger,
     db: ()=> dbAdapter,
-    cache: ()=> cacheAdapter
+    cache: ()=> cacheAdapter,
+    emailer: ()=> mailSender 
 }))
 
 import { requestLogger } from "./middleware/request-logger.js"

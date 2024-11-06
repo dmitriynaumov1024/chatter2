@@ -64,6 +64,7 @@ route.post("/chatroom.index", async(request, response)=> {
                 c => c.where("chatId", chatroom.id).where("startAt", "<=", after)
                 .where(ch => ch.where("endAt", ">", after).orWhereNull("endAt")).first()
             )
+            logger.warn("aaaa~")
             // patch insted of sending everything
             chunk = Object.assign({ }, chunk, { patch: true, messages: chunk.messages.filter(m=> m.createdAt >= after) })
         }
@@ -82,8 +83,8 @@ route.post("/chatroom.index", async(request, response)=> {
         chunk ??= await cache.chatroomChunk.getByQuery(c => c.where("chatId", chatroom.id).whereNull("endAt").first())
     }
 
-    return response.status(200).json({
-        users: uic.canManage?
+    if (users) {
+        users = uic.canManage?
         users.map(uic=> ({
             id: uic.user.id,
             email: uic.user.email,
@@ -97,7 +98,11 @@ route.post("/chatroom.index", async(request, response)=> {
         users.map(uic=> ({ 
             id: uic.user.id,
             email: uic.user.email
-        })),
+        }))
+    }
+
+    return response.status(200).json({
+        users: users,
         chatroom: chatroom,
         messageChunk: chunk
     })
