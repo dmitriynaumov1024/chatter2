@@ -5,7 +5,24 @@ import { HttpClient } from "./http-client.js"
 
 let httpClient = HttpClient("/api/v1")
 let tempStorage = reactive({ })
-let clientStorage = reactive({ })
+let clientStorage = reactive({ 
+    settings: {
+        chatlistPolling: {
+            repeat: true,
+            intervalS: 10,
+            intervalMin: 5,
+            intervalMax: 60,
+            intervalStep: 5
+        },
+        chatroomPolling: {
+            repeat: true,
+            intervalS: 10,
+            intervalMin: 5,
+            intervalMax: 60,
+            intervalStep: 5
+        }
+    }
+})
 
 let querystring = (window.location.search || window.location.hash)
 if (querystring.startsWith("#")) querystring = querystring.split("?").at(-1) || ""

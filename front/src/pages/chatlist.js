@@ -1,5 +1,7 @@
 import { h } from "vue"
 import modal from "../comp/modal.js"
+import checkbox from "../comp/checkbox.js"
+import stepperbox from "../comp/stepperbox.js"
 import { prevent, stop } from "../comp/event-modifiers.js"
 
 const chatModes = [ "accepted", "invited", "rejected" ]
@@ -35,10 +37,10 @@ const chatroomView = {
     render() {
         let chatroom = this.chatroom
         if (this.mode == "accepted") {
-            let message = this.chunks?.find(c => c.chatId == chatroom.id && c.endAt == null)?.messages.findLast(m=> m.text)
+            let message = this.chunks?.find(c=> c.chatId == chatroom.id && c.endAt == null)?.messages.filter(m=> m.text).at(-1)
             return h("div", { class: ["pad-025", "bv", "clickable", "chat-card"], expanded: this.expanded, onClick: ()=> this.$emit("navigate"), onContextmenu: prevent(()=> this.$emit("expand")) }, [
                 h("p", { class: ["one-line"] }, h("b", { }, chatroom.title)),
-                h("p", { class: ["color-gray", "mar-b-05", "one-line"] }, message?.text.slice(200) || "no preview available"),
+                h("p", { class: ["color-gray", "mar-b-05", "one-line"] }, message?.text.slice(0, 200) ?? "no preview available"),
                 (chatroom.messagesChangedAt > chatroom.lastReadAt)?
                 h("div", { class: ["chat-preview-dot"] }, "") : null,
                 h("div", { class: ["mar-b-05"], display: this.expanded, onClick: stop() }, [
@@ -99,7 +101,7 @@ const chatroomListView = {
     },
     render() {
         return this.chatrooms.map(chatroom=> {
-            let chunks = this.$storage.chatroomChunks? this.$storage.chatroomChunks[this.chatroomId] : null
+            let chunks = this.$storage.chatroomChunks? this.$storage.chatroomChunks[chatroom.id] : null
             let mode = this.currentMode
             return h(chatroomView, { 
                 chatroom, chunks, mode, expanded: this.expandedId==chatroom.id,
@@ -111,6 +113,17 @@ const chatroomListView = {
     }
 }
 
+const reloadIcon = {
+    render() {
+        return h("svg", { viewBox: "0 0 100 100" }, [
+            h("g", { "stroke": "#fcfdff", "stroke-width": "10", "fill": "none" }, [
+                h("path", { d: "M 10 50 Q 14 86 50 90 Q 86 86 90 50 Q 86 14 50 10 Q 40 13 30 25" }),
+                h("path", { d: "M 29 6 L 26 28 L 47 41" })
+            ])
+        ])
+    }
+}
+
 export default {
     data() {
         return {
@@ -118,7 +131,9 @@ export default {
             showingMe: false,
             loggingOut: false,
             chatTitle: "",
-            chatMode: "accepted"
+            chatMode: "accepted",
+            getIndexTimeout: null,
+            gettingIndex: false
         }
     },
     methods: {
@@ -127,6 +142,15 @@ export default {
             this.$goToPage("chatroom")
         },
         async getIndex() {
+            clearTimeout(this.getIndexTimeout)
+            let settings = this.$storage.settings
+            if (settings.chatlistPolling.repeat) {
+                this.getIndexTimeout = setTimeout(
+                    ()=> { this.getIndex() }, 
+                    settings.chatlistPolling.intervalS * 1000
+                )
+            }
+            this.gettingIndex = true
             let result = await this.$http.invoke("index", { mode: this.chatMode })
             this.$storage.chatroomChunks??= { }
             if (result.me) {
@@ -135,6 +159,7 @@ export default {
             if (result.chatrooms) {
                 this.$storage.chatrooms = result.chatrooms
             }
+            this.gettingIndex = false
         },
         beginCreateChat() {
             this.chatTitle = ""
@@ -179,22 +204,42 @@ export default {
                 let chatroom = this.$storage.chatrooms.find(c=> c.id == chatId)
                 chatroom.newMode = mode
             }
+        },
+        onPollingRepeatChanged(repeat) {
+            if (repeat) {
+                if (!this.getIndexTimeout) {
+                    this.getIndexTimeout = setTimeout(
+                        ()=> { this.getIndex() }, 
+                        this.$storage.settings.chatlistPolling.intervalS * 1000
+                    )
+                }
+            }
+            else {
+                clearTimeout(this.getIndexTimeout)
+                this.getIndexTimeout = null
+            }
         }
     },
     mounted() {
         this.getIndex()
     },
+    unmounted() {
+        clearTimeout(this.getIndexTimeout)
+    },
     render() {
+        const env = import.meta.env
         if (this.$storage.me && this.$storage.chatrooms) {
+            let settings = this.$storage.settings
             let me = this.$storage.me
             let chatrooms = this.$storage.chatrooms.map(c => c)
-            // newest first
-            chatrooms = chatrooms.sort((c1, c2)=> c2.messagesChangedAt - c1.messagesChangedAt)
+                .sort((c1, c2)=> c2.messagesChangedAt - c1.messagesChangedAt)
             return h("div", { class: ["ww", "h100", "flex-v"] }, [
                 h("div", { }, [
                     h("div", { class: ["bb"] }, [
                         h("div", { class: ["wc", "pad-05"] }, [
-                            h("h2", { }, "My chatlist"),
+                            h("h2", { }, [
+                                "My chatlist", " ", h("span", { class: ["color-good"] }, this.gettingIndex? "\u25cf" : null)
+                            ]),
                             h("p", { }, [
                                 h("span", { }, "Signed in as "),  
                                 h("a", { onClick: ()=> this.beginShowMe() }, me.email)
@@ -219,8 +264,9 @@ export default {
                         onSetChatMode: (id, mode)=> this.setModeForChat(id, mode)
                     }) :
                     h("div", { class: ["text-center", "pad05"] }, "No chats so far..."),
-                    
                 ]),
+                h("div", { style: { "height": "2.5rem", "flex-shrink": 0, "font-size": "80%" }, class: ["pad-05", "color-gray"] }, `Chatter v${env.VITE_APP_VERSION}-${env.VITE_APP_MODE}, refresh ${settings.chatlistPolling.repeat? ("every "+settings.chatlistPolling.intervalS+"s"): "MANUAL"}`),
+                h("button", { class: ["message-send-button"], display: !settings.chatlistPolling.repeat, onClick: ()=> this.getIndex() }, h(reloadIcon, { class: ["icon-20"] })),
                 // a modal window for create new chat
                 h(modal, { titleText: h("b", "Create new chat"), display: this.creatingChat, onClickOutside: ()=> this.completeCreateChat(false) }, ()=> h("div", { }, [
                     h("p", { class: ["mar-b-1"] }, [
@@ -231,20 +277,43 @@ export default {
                     h("input", { class: ["block", "mar-b-05"], value: this.chatTitle, onInput: (e)=> this.chatTitle = e.target.value }),
                     h("button", { class: ["block"], onClick: ()=> this.completeCreateChat(true) }, "Create")
                 ])),
-                // a modal window displaying details about user
-                h(modal, { titleText: "My profile", display: this.showingMe, onClickOutside: ()=> this.endShowMe() }, ()=> h("div", { }, [
-                    h("div", { class: ["mar-b-1"] }, [
+                // a modal window displaying settings and details about user
+                h(modal, { titleText: "Profile & Settings", display: this.showingMe, onClickOutside: ()=> this.endShowMe() }, ()=> h("div", { }, [
+                    h("div", { class: ["mar-b-05", "bb"] }, [
                         h("h3", { class: ["mar-b-05"] }, me.email),
-                        h("p", { class: ["color-gray"] }, me.id)
+                        h("p", { class: ["color-gray", "mar-b-05"] }, me.id),
+                        this.loggingOut?
+                        h("div", { class: ["mar-b-05"] }, [
+                            h("p", { class: ["mar-b-05"] }, "Really log out?"),
+                            h("button", { class: ["block", "mar-b-05"], onClick: ()=> this.endLogout(false) }, "Cancel"),
+                            h("button", { class: ["block", "color-bad"], onClick: ()=> this.endLogout(true) }, h("b", "Log out"))
+                        ]) :
+                        h("button", { class: ["block", "mar-b-05"], onClick: ()=> this.beginLogout() }, "Log out")
                     ]),
-                    this.loggingOut?
-                    h("div", { }, [
-                        h("p", { class: ["mar-b-05"] }, "Really log out?"),
-                        h("button", { class: ["block", "mar-b-05"], onClick: ()=> this.endLogout(false) }, "Cancel"),
-                        h("button", { class: ["block", "color-bad"], onClick: ()=> this.endLogout(true) }, h("b", "Log out"))
-                    ]) :
-                    h("button", { class: ["block"], onClick: ()=> this.beginLogout() }, "Log out")
-                ]))
+                    h("div", { class: ["mar-b-05"] }, [
+                        h("h3", { class: ["mar-b-05"] }, "Settings"),
+                        h("div", { class: ["mar-b-05"] }, [
+                            h("p", { }, "Chatlist polling interval, s"),
+                            h(stepperbox, { class: ["flex-stripe"], 
+                                min: settings.chatlistPolling.intervalMin, 
+                                max: settings.chatlistPolling.intervalMax, 
+                                step: settings.chatlistPolling.intervalStep,
+                                value: settings.chatlistPolling.intervalS, 
+                                onChange: (value)=> settings.chatlistPolling.intervalS = value
+                            }),
+                        ]),
+                        h("div", { class: ["mar-b-05"] }, [
+                            h("p", { }, "Chatlist polling repeat"),
+                            h(checkbox, {
+                                value: settings.chatlistPolling.repeat,
+                                onChange: [
+                                    (value)=> this.onPollingRepeatChanged(value),
+                                    (value)=> settings.chatlistPolling.repeat = value,
+                                ]
+                            }, ()=> settings.chatlistPolling.repeat? "Enabled" : "Disabled")
+                        ])
+                    ])
+                ])),
             ]) 
         }
         else return h("div", { class: ["wc", "pad-05"] }, [

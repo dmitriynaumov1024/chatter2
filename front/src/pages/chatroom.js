@@ -1,6 +1,7 @@
 import { h } from "vue"
 import modal from "../comp/modal.js"
 import checkbox from "../comp/checkbox.js"
+import stepperbox from "../comp/stepperbox.js"
 
 import { getTimeZone, timestampToHHMM, timestampToDayMonthYear, days, isValidEmail } from "../utils.js"
 
@@ -61,11 +62,11 @@ const sysMessageView = {
 
 const dayMessageView = {
     props: {
-        timestamp: Number
+        message: Object
     },
     render() {
         return h("div", { class: ["day-message"] }, [
-            h("span", { }, timestampToDayMonthYear(this.timestamp, tz))
+            h("span", { }, timestampToDayMonthYear(this.message.day, tz))
         ])
     }
 }
@@ -79,30 +80,20 @@ const messageListView = {
         "click"
     ],
     render() {
-        let prev = { createdAt: -1 }
-        let result = [ ]
-        for (let chunk of this.messageChunks) {
-            for (let message of chunk.messages) {
-                if (!message) {
-                    continue
-                }
-                if (days(message.createdAt, tz) != days(prev.createdAt, tz)) {
-                    result.push(h(dayMessageView, { timestamp: message.createdAt }))
-                }
-                if (message.text) {
-                    result.push(h(messageView, { message, userName: this.users.find(u=> u.id==message.userId)?.email || message.userId, own: message.userId == this.$storage.me.id }))
-                }
-                else if (message.event) {
-                    if (actionTexts[message.event.entityType] && 
-                        actionTexts[message.event.entityType][message.event.actionType]) {
-                        result.push(h(sysMessageView, { message }))
-                    }
-                }
-                prev = message
-            }
-        }
         return h("div", { class: ["message-list-wrapper", "flex-grow", "scroll"] }, [
-            h("div", { class: ["pad-05"] }, result)
+            h("div", { class: ["pad-05"] }, this.messageChunks.map(chunk=> {
+                return chunk.messages.map(message=> {
+                    if (message.day) {
+                        return h(dayMessageView, { message })
+                    }
+                    else if (message.event) {
+                        return h(sysMessageView, { message })
+                    }
+                    else {
+                        return h(messageView, { message, userName: this.users.find(u=> u.id==message.userId)?.email || message.userId, own: message.userId == this.$storage.me.id })
+                    }
+                })
+            }))
         ])
     }
 }
@@ -116,6 +107,31 @@ const messageSenderIcon = {
             ])
         ])
     }
+}
+
+// chunkOld, chunkNew technically can be both old chunks and new chunks.
+// to do later: EDIT messages
+function toNormalizedChunk ({ chunkOld, chunkNew, chunk }) {
+    chunkNew ??= chunk
+    let prev = chunkOld?.messages.at(-1) || ({ createdAt: -1 })
+    let result = (chunkNew.patch && chunkOld)? chunkOld : ({ id: chunkNew.id, chatId: chunkNew.chatId, startAt: chunkNew.startAt, endAt: chunkNew.endAt, messages: [ ] })
+    let chunkNewStart = chunkNew.messages.findIndex(msg=> msg.id == prev.id) + 1
+    for (let i=chunkNewStart; i<chunkNew.messages.length; i++) {
+        let message = chunkNew.messages[i]
+        if (days(prev.createdAt) < days(message)) {
+            result.messages.push({ day: message.createdAt })
+        }
+        result.messages.push(message)
+    }
+    return result
+}
+
+// merge message arrays.
+function mergeMessages (oldArray, newArray) {
+    let prev = oldArray.at(-1)
+    let newStart = newArray.findIndex(msg=> msg.id == prev.id) + 1
+    let result = [ oldArray.map(msg=> msg), newArray.slice(newStart) ].flat(1)
+    return result
 }
 
 export default {
@@ -142,13 +158,22 @@ export default {
             editedUser: null,
             removedUser: null,
 
-            sendingMessage: false,
-            messageText: ""
+            typingMessage: false,
+            messageText: "",
+
+            normalizedChunks: [ ],
+
+            getIndexTimeout: null,
+            gettingIndex: false,
+            nextGetIndexTime: Date.now()
         }
     },
     methods: {
-        async getIndex({ before, after } = { }) {
+        async getIndex({ before, after, repeat } = { }) {
+            this.gettingIndex = true
             let storage = this.$storage
+            let settings = storage.settings
+            let repeatInterval = settings.chatroomPolling.intervalS * 1000
             let result = await this.$http.invoke("chatroom.index", { chatroom: { id: this.$temp.chat }, before, after })
             storage.chatroomChunks??= { }
             storage.users??= { }
@@ -165,13 +190,21 @@ export default {
                     let chunks = storage.chatroomChunks[result.chatroom.id]
                     let j = chunks.findIndex(item=> item.id == result.messageChunk.id)
                     if (j >= 0) {
-                        if (result.messageChunk.patch)
-                            chunks[j] = Object.assign({ }, chunks[j], [chunks[j].messages, result.messageChunk.messages].flat(1))
-                        else 
+                        if (result.messageChunk.patch) {
+                            let chunkOld = this.normalizedChunks.pop()
+                            this.normalizedChunks.push(toNormalizedChunk({ chunkOld, chunkNew: result.messageChunk }))
+                            chunks[j] = Object.assign({ }, result.messageChunk, { messages: mergeMessages(chunks[j].messages, result.messageChunk.messages) })
+                        }
+                        else {
+                            this.normalizedChunks[j] = toNormalizedChunk({ chunkOld: this.normalizedChunks[j-1], chunkNew: result.messageChunk })
                             chunks[j] = result.messageChunk
+                        }
                     }
                     else {
+                        this.normalizedChunks.push(toNormalizedChunk({ chunkOld: this.normalizedChunks.at(-1), chunkNew: result.messageChunk }))
                         chunks.push(result.messageChunk)
+                        this.normalizedChunks.sort((ch1, ch2)=> ch1.startAt - ch2.startAt)
+                        chunks.sort((ch1, ch2)=> ch1.startAt - ch2.startAt)
                     }
                 }
 
@@ -179,7 +212,19 @@ export default {
                     storage.users[result.chatroom.id] = result.users
                 }
                 this.loaded = true
+
+                // if succeeded, set timeout
+                if (repeat && settings.chatroomPolling.repeat) {
+                    this.nextGetIndexTime = Date.now() + repeatInterval
+                    this.getIndexTimeout = setTimeout(()=> this.getIndex({ repeat: true, after: result.chatroom.messagesChangedAt }), repeatInterval)
+                }
             }
+            else if (repeat && settings.chatroomPolling.repeat) {
+                // if failed, set timeout to do this one again
+                this.nextGetIndexTime = Date.now() + repeatInterval
+                this.getIndexTimeout = setTimeout(()=> this.getIndex({ repeat: true, before, after }), repeatInterval)
+            }
+            this.gettingIndex = false
         },
         async deleteChat() {
             let storage = this.$storage
@@ -223,8 +268,12 @@ export default {
             let chatroom = storage.chatrooms.find(c=> c.id == this.$temp.chat)
             let result = await this.$http.invoke("chatroom.message.send", { chatroom: { id: chatId }, message: { text: messageText } })
             if (result.success) {
+                // we only do this if there is more than 2s until next request
+                let refreshTimeMargin = 2000
+                if (this.nextGetIndexTime - Date.now() > refreshTimeMargin) {
+                    this.getIndex({ after: Math.max(chatroom.messagesChangedAt, chatroom.usersChangedAt) })
+                }
                 this.messageText = ""
-                this.getIndex({ after: Math.max(chatroom.messagesChangedAt, chatroom.usersChangedAt) })
             }
         },
         goToChatlist() {
@@ -299,43 +348,71 @@ export default {
             this.removedUser = null
         },
         beginSendMessage() {
-            this.sendingMessage = true
+            this.typingMessage = true
             console.log(this.$refs.messageInput)
             setTimeout(()=> this.$refs.messageInput.focus(), 60)
         },
         endSendMessage(confirm, erase) {
             if (erase) {
-                this.messageText = "" 
+                this.messageText = ""
+                return
             }
             if (confirm) {
                 this.sendMessage(this.messageText)
             }
-            this.sendingMessage = false
+            this.typingMessage = false
+        },
+        onPollingRepeatChanged(repeat) {
+            if (repeat) {
+                if (!this.getIndexTimeout) {
+                    this.getIndexTimeout = setTimeout(
+                        ()=> { this.getIndex() }, 
+                        this.$storage.settings.chatroomPolling.intervalS * 1000
+                    )
+                }
+            }
+            else {
+                clearTimeout(this.getIndexTimeout)
+                this.getIndexTimeout = null
+            }
         }
     },
     mounted() {
-        this.getIndex()
+        let storage = this.$storage
+        storage.normalizedChunks ??= { }
+        storage.normalizedChunks[this.$temp.chat] = []
+        this.normalizedChunks = storage.normalizedChunks[this.$temp.chat]
+        this.getIndex({ repeat: true })
+    },
+    unmounted() {
+        clearTimeout(this.getIndexTimeout)
     },
     render() {
+        const env = import.meta.env
         if (!this.loaded) return h("div", { class: ["ww", "pad-05"] }, [
             h("h2", { class: ["mar-b-05"] }, "Chatroom"),
             h("p", { }, "Loading...")
         ])
         let storage = this.$storage
+        let settings = storage.settings
         let me = storage.me 
         let chatroom = storage.chatrooms.find(c=> c.id == this.$temp.chat)
         let users = storage.users[chatroom.id]
         let me2 = users.find(u=> u.id == me.id)
         let chunks = storage.chatroomChunks[chatroom.id]
-        if (this.deletedChat) return h("div", { class: ["pad-05"] }, [
-            h("h2", { class: ["mar-b-05"] }, "Chatroom deleted"),
-            h("p", { class: ["mar-b-05"] }, "You deleted this chatroom. Click the button below to go to chat list."),
-            h("button", { class: ["block", "pad-05"], onClick: ()=> this.goToChatlist() }, "Go to Chat list")
+        if (this.deletedChat) return h("div", { class: ["ww"] }, [
+            h("div", { class: ["wc", "pad-05"] }, [
+                h("h2", { class: ["mar-b-05"] }, "Chatroom deleted"),
+                h("p", { class: ["mar-b-05"] }, "You deleted this chatroom. Click the button below to go to chat list."),
+                h("button", { class: ["block", "pad-05"], onClick: ()=> this.goToChatlist() }, "Go to Chat list")
+            ])
         ])
         return h("div", { class: ["ww", "h100", "flex-v"] }, [
             h("div", { class: ["bb"] }, [
                 h("div", { class: ["wc", "pad-05"] }, [
-                    h("h2", { class: ["clickable"], onClick: ()=> this.beginShowControls() }, chatroom.title),
+                    h("h2", { class: ["clickable"], onClick: ()=> this.beginShowControls() }, [
+                        chatroom.title, " ", h("span", { class: ["color-good"] }, this.gettingIndex? "\u25cf" : null)
+                    ]),
                     me? h("p", { }, [
                         h("span", { }, "Signed in as "),  
                         h("a", { onClick: ()=> this.beginShowMe() }, me.email)
@@ -343,22 +420,45 @@ export default {
                 ]),
             ]),
             h(messageListView, { 
-                users: users, messageChunks: chunks
+                users: users, messageChunks: this.normalizedChunks
             }),
-            h("div", { style: { "height": "2.5rem", "flex-shrink": 0 } }, ""),
-            // a modal window displaying details about user
-            h(modal, { titleText: "My profile", display: this.showingMe, onClickOutside: ()=> this.endShowMe() }, ()=> h("div", { }, [
-                h("div", { class: ["mar-b-1"] }, [
+            h("div", { style: { "height": "2.5rem", "flex-shrink": 0, "font-size": "80%" }, class: ["pad-05", "color-gray"] }, `Chatter v${env.VITE_APP_VERSION}-${env.VITE_APP_MODE}, refresh ${settings.chatroomPolling.repeat? ("every "+settings.chatroomPolling.intervalS+"s"): "MANUAL"}`),
+            // a modal window displaying settings and details about user
+            h(modal, { titleText: "Profile & Settings", display: this.showingMe, onClickOutside: ()=> this.endShowMe() }, ()=> h("div", { }, [
+                h("div", { class: ["mar-b-05", "bb"] }, [
                     h("h3", { class: ["mar-b-05"] }, me.email),
-                    h("p", { class: ["color-gray"] }, me.id)
+                    h("p", { class: ["color-gray", "mar-b-05"] }, me.id),
+                    this.loggingOut?
+                    h("div", { class: ["mar-b-05"] }, [
+                        h("p", { class: ["mar-b-05"] }, "Really log out?"),
+                        h("button", { class: ["block", "mar-b-05"], onClick: ()=> this.endLogout(false) }, "Cancel"),
+                        h("button", { class: ["block", "color-bad"], onClick: ()=> this.endLogout(true) }, h("b", "Log out"))
+                    ]) :
+                    h("button", { class: ["block", "mar-b-05"], onClick: ()=> this.beginLogout() }, "Log out")
                 ]),
-                this.loggingOut?
-                h("div", { }, [
-                    h("p", { class: ["mar-b-05"] }, "Really log out?"),
-                    h("button", { class: ["block", "mar-b-05"], onClick: ()=> this.endLogout(false) }, "Cancel"),
-                    h("button", { class: ["block", "color-bad"], onClick: ()=> this.endLogout(true) }, h("b", "Log out"))
-                ]) :
-                h("button", { class: ["block"], onClick: ()=> this.beginLogout() }, "Log out")
+                h("div", { class: ["mar-b-05"] }, [
+                    h("h3", { class: ["mar-b-05"] }, "Settings"),
+                    h("div", { class: ["mar-b-05"] }, [
+                        h("p", { }, "Chatroom polling interval, s"),
+                        h(stepperbox, { class: ["flex-stripe"], 
+                            min: settings.chatroomPolling.intervalMin, 
+                            max: settings.chatroomPolling.intervalMax, 
+                            step: settings.chatroomPolling.intervalStep,
+                            value: settings.chatroomPolling.intervalS, 
+                            onChange: (value)=> settings.chatroomPolling.intervalS = value
+                        }),
+                    ]),
+                    h("div", { class: ["mar-b-05"] }, [
+                        h("p", { }, "Chatroom polling repeat"),
+                        h(checkbox, {
+                            value: settings.chatroomPolling.repeat,
+                            onChange: [
+                                (value)=> this.onPollingRepeatChanged(value),
+                                (value)=> settings.chatroomPolling.repeat = value,
+                            ]
+                        }, ()=> settings.chatroomPolling.repeat? "Enabled" : "Disabled")
+                    ])
+                ])
             ])),
             // a modal displaying chatroom controls
             h(modal, { titleText: "Chatroom details", display: this.showingControls && !!users, onClickOutside: ()=> this.endShowControls() }, ()=> h("div", { }, [
@@ -440,8 +540,8 @@ export default {
                 ])
             ])),
             // a modal message sender
-            h(modal, { titleText: "Send message", display: this.sendingMessage, onClickOutside: ()=> this.endSendMessage(false) }, ()=> h("div", { }, [
-                h("textarea", { class: ["block", "height-10", "mar-b-05", "no-border"], ref: "messageInput", value: this.messageText, onChange: (e)=> { this.messageText = e.target.value } }),
+            h(modal, { titleText: "Send message", display: this.typingMessage, onClickOutside: ()=> this.endSendMessage(false) }, ()=> h("div", { }, [
+                h("textarea", { class: ["block", "height-10", "mar-b-05", "no-border"], ref: "messageInput", value: this.messageText, onInput: (e)=> { this.messageText = e.target.value } }),
                 h("div", { class: ["flex-stripe", "flex-pad-05"] }, [
                     this.messageText?
                     h("span", { class: ["flex-grow", "clickable", "text-center", "color-bad", "pad-025"], onClick: ()=> this.endSendMessage(false, true) }, "\u2a2f Erase") :
@@ -449,7 +549,7 @@ export default {
                     h("button", { class: ["width-50p", "pad-025"], onClick: ()=> this.endSendMessage(true) }, h("b", "Send"))
                 ])
             ])),
-            h("button", { class: ["message-send-button"], display: !this.sendingMessage, onClick: ()=> this.beginSendMessage() }, h(messageSenderIcon, { class: ["icon-20"] }))
+            h("button", { class: ["message-send-button"], display: !this.typingMessage, onClick: ()=> this.beginSendMessage() }, h(messageSenderIcon, { class: ["icon-20"] }))
         ])
     }
 }

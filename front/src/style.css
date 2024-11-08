@@ -141,6 +141,10 @@ h2 {
   font-weight: bold;
 }
 
+.color-good.color-good {
+  color: #65be76;
+}
+
 .color-bad.color-bad {
   color: #e03434;
 }
@@ -300,6 +304,25 @@ textarea {
   border-radius: 0;
 }
 
+.stepperbox-wrapper>input {
+  border-left: none;
+  border-right: none;
+  flex-grow: 1;
+  width: 8rem;
+  text-align: center;
+}
+
+.stepperbox-wrapper.block>input,
+.stepperbox-wrapper.flex-stripe>input {
+  width: unset;
+}
+
+.stepperbox-wrapper>button {
+  padding-left: 1rem;
+  padding-right: 1rem;
+  flex-shrink: 0;
+}
+
 .checkbox {
   display: inline;
   padding: 1px 0;
@@ -317,7 +340,7 @@ textarea {
 }
 
 .checkbox[checked="true"]::after {
-  background-image: url("/icon/checkmark.svg");
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB2ZXJzaW9uPSIxLjEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KICA8cmVjdCB4PSIxMCIgeT0iMTAiIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgZmlsbD0iIzExNjFkZSIgc3Ryb2tlPSJub25lIiAvPgo8L3N2Zz4K");
   background-size: contain;
 }
 

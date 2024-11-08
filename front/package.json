@@ -6,7 +6,7 @@
     "scripts": {
         "dev": "vite --port 5000",
         "build-prod": "vite build --mode prod && rm -rf ../back/dist && mv ./dist ../back/dist",
-        "build-debug": "vite build --minify false && rm -rf ../back/dist && mv ./dist ../back/dist"
+        "build-debug": "vite build --mode debug --minify false && rm -rf ../back/dist && mv ./dist ../back/dist"
     },
     "dependencies": {
         "qs": "^6.13.0",
