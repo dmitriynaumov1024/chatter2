@@ -67,8 +67,9 @@ export default {
                         `${this.$temp.email} is being verified now. `,
                         this.waitTimeout>0? 
                             `Estimated wait time is ${Math.ceil(this.waitTimeout/60000)} minute(s).`: 
-                            `It may take up to 10 minutes.`,
-                        `Thanks for your patience!`
+                            "It may take up to 10 minutes. ",
+                        "Thanks for your patience! To refresh, ",
+                        h("a", { onClick: ()=> this.onSubmitClick() }, "click here")
                     ]) : null,
                     this.otherError? 
                     h("p", { class: ["color-bad"] }, "Something went wrong. Try again later.") : null
