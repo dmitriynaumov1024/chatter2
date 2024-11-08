@@ -10,7 +10,7 @@ route.post("/chatroom.message.send", async(request, response)=> {
     })
 
     let { chatroom, message } = request.body
-    let requestOk = chatroom?.id && message?.text && message.text.length > 1
+    let requestOk = chatroom?.id && message?.text && message.text.length >= 1
     if (!requestOk) return response.status(400).json({
         message: "Bad request! Expected { chatroom { id Number }, message { text String[1,10000] } }"
     })

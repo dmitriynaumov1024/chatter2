@@ -35,7 +35,8 @@ route.post("/chatroom.index", async(request, response)=> {
     let chunk = null
     let users = null
     
-    let chatroom = cache.chatroom.get({ id: uic.chatId, notCached: true }, (oldChat, newChat)=> 
+    uic.chat.notCached = true
+    let chatroom = cache.chatroom.get(uic.chat, (oldChat, newChat)=> 
             newChat.usersChangedAt > oldChat.usersChangedAt || 
             newChat.messagesChangedAt > oldChat.messagesChangedAt)
 

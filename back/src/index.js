@@ -26,6 +26,13 @@ let mailSender = createMailSender?
     }): 
     mailSenders.default(logger)
 
+// workers:
+// session cleanup worker
+import { sessionCleanupWorker } from "./workers/sessionCleanupWorker.js"
+let scWorker = sessionCleanupWorker({ dbAdapter, logger })
+scWorker.start(30000) // every 30 seconds. 
+
+// server
 import { createServer } from "better-express"
 let server = createServer({
     https: true,
