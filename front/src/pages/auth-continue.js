@@ -20,7 +20,7 @@ export default {
         }
     },
     render() {
-        return h("div", { class: ["ww"] }, [
+        return h("div", { class: ["ww", "h100", "scroll"] }, [
             h("div", { class: ["bv"] }, [
                 h("div", { class: ["wc", "pad-1-05"] }, [
                     h("h2", { }, [

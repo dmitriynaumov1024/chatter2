@@ -12,7 +12,7 @@ export default {
         }
     },
     render() {
-        return h("div", { class: ["ww"] }, [
+        return h("div", { class: ["ww", "h100", "scroll"] }, [
             h("div", { class: ["bv"] }, [
                 h("div", { class: ["wc", "pad-05", "text-center"] }, [
                     h("img", { class: ["height-10", "mar-b-1"], src: "/favicon.svg" }),
