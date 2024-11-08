@@ -2,27 +2,11 @@ import { createApp, h, reactive } from "vue"
 import qs from "qs"
 import { v4 as uuid } from "uuid" 
 import { HttpClient } from "./http-client.js"
+import { createSettings } from "./user-settings.js"
 
 let httpClient = HttpClient("/api/v1")
 let tempStorage = reactive({ })
-let clientStorage = reactive({ 
-    settings: {
-        chatlistPolling: {
-            repeat: true,
-            intervalS: 10,
-            intervalMin: 5,
-            intervalMax: 60,
-            intervalStep: 5
-        },
-        chatroomPolling: {
-            repeat: true,
-            intervalS: 10,
-            intervalMin: 5,
-            intervalMax: 60,
-            intervalStep: 5
-        }
-    }
-})
+let clientStorage = reactive({ })
 
 let querystring = (window.location.search || window.location.hash)
 if (querystring.startsWith("#")) querystring = querystring.split("?").at(-1) || ""
@@ -50,6 +34,7 @@ let pages = {
 let app = createApp({
     async created() {
         Object.assign(this.$storage, JSON.parse(window.localStorage[lsKey]|| "{}"))
+        this.$storage.settings ??= createSettings()
         this.$http.session = Object.assign({}, this.$storage.session)
         await this.$http.timesync()
         this.$temp.page = "index"
@@ -97,13 +82,13 @@ app.config.globalProperties.$logout = function() {
         for (let key in this.$storage) {
             this.$storage[key] = null
         }
+        this.$storage.settings = createSettings()
         this.$http.session = { }
     }, 100)
 }
 
 function setHeight () {
-    let hf = window.innerHeight
-    document.body.style.setProperty("--height-full", hf+"px")
+    document.body.style.setProperty("--height-full", window.innerHeight+"px")
 }
 
 setTimeout(()=> {
