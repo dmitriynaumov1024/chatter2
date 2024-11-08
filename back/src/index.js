@@ -36,8 +36,8 @@ scWorker.start(30000) // every 30 seconds.
 import { createServer } from "better-express"
 let server = createServer({
     https: true,
-    key: "../var/openssl/key/localhost.key",
-    cert: "../var/openssl/cert/localhost.crt"
+    key: process.env.BACK_CERT_KEY_FILE,
+    cert: process.env.BACK_CERT_FILE
 })
 
 // static serving
