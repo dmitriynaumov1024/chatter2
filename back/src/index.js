@@ -90,6 +90,6 @@ api.use(chatroomMessageRouter)
 import { errorCatcher } from "./middleware/error-catcher.js"
 server.http.app.use(errorCatcher(()=> logger))
 
-let port = 8080
+let port = process.env.BACK_PORT
 server.listen(port)
 logger.log(`Listening to ${port}`)
